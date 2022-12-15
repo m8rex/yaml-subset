@@ -22,14 +22,14 @@ string_multiline_literal = { "|" ~ (NEWLINE ~ unquoted_string)* }
 inline_value = { number | inline_array | inline_hash | string }
 
 inline_array = { "[" ~ spaces ~ inline_value ~ (spaces ~ "," ~ spaces ~ inline_value)* ~ spaces ~ "]" }
-block_array_element = { "-" ~ spaces ~ yaml_value }
+block_array_element = { "-" ~ SPACE_SEPARATOR* ~ yaml_value }
 block_array = { commentnl* ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
 
 
 yaml_value = { hash | array | string_multiline_folded | string_multiline_literal | inline_value }
 hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ yaml_value}
-hash = { commentnl* ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
+hash = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
 inline_hash = { "{" ~ spaces ~ "}" }
 
