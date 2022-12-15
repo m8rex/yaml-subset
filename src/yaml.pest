@@ -31,10 +31,10 @@ array = { inline_array | block_array }
 alternative_array = { block_array_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 
 block_array_yaml_value = _{ alternative_yaml_value | yaml_value }
-alternative_yaml_value = { (alias ~ spaces)? ~  (alternative_hash | alternative_array) }
+alternative_yaml_value = _{ (alias ~ spaces)? ~  (alternative_hash | alternative_array) }
 
 yaml_value = _{ (alias ~ SPACE_SEPARATOR*)? ~ (hash | array | string_multiline_folded | string_multiline_literal | inline_value) }
-hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ yaml_value}
+hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ block_array_yaml_value}
 hash = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
 alternative_hash = { hash_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }

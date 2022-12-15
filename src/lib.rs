@@ -79,12 +79,12 @@ fn alias(pair: Pair<Rule>) -> String {
 
 fn parse_value(pair: Pair<Rule>) -> Yaml {
     match pair.as_rule() {
-        Rule::hash => Yaml::Hash(
+        Rule::hash | Rule::alternative_hash => Yaml::Hash(
             pair.into_inner()
                 .map(|pair| parse_hash_data(pair))
                 .collect(),
         ),
-        Rule::array => Yaml::Array(
+        Rule::array | Rule::alternative_array => Yaml::Array(
             pair.into_inner()
                 .map(|pair| parse_array_data(pair))
                 .collect(),
@@ -168,6 +168,41 @@ v: &ok
 v: test # maybe
 k: [5, 10, "e"]
 # after
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+    }
+
+    #[test]
+    fn elab() {
+        let inp = r#"---
+# test
+k: &anch test
+# hi
+v: &ok
+   - &ok2 test
+# comment
+   - *test # an anchor
+v: test # maybe
+k: &kk [5, 10, "e"]
+# after
+y: - x: 5
+     z: &zfield 6 # yess
+   - n: 8
+   - j
+# between
+z: - *kk
+   - ke
+k: - - j
+     - k
+     - l
+   - - m
+     - z: k
+       t: - m: l # comment
+            p: 4 # comment
+          - m # after m
+# wow
+# something else
 "#;
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
