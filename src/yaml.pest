@@ -23,7 +23,7 @@ inline_value = { number | inline_array | inline_hash | string }
 
 inline_array = { "[" ~ spaces ~ inline_value ~ (spaces ~ "," ~ spaces ~ inline_value)* ~ spaces ~ "]" }
 block_array_element = { "-" ~ SPACE_SEPARATOR* ~ yaml_value }
-block_array = { commentnl* ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
+block_array = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
 
 
@@ -39,5 +39,5 @@ commentnl = { comment_base ~ NEWLINE }
 comment = { comment_base }
 
 document = { hash | array }
-yaml = { "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE? ~ (comment ~ NEWLINE?)* }
+yaml = { SOI ~ "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE? ~ (comment ~ NEWLINE?)* ~ EOI }
 
