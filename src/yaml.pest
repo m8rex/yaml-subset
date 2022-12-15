@@ -1,0 +1,35 @@
+space = _{ " " | NEWLINE }
+spaces = _{ space* }
+hash_key = { LETTER+ }
+
+number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+
+disallowed_unquoted_string_elements = { "[" | ": " | "-" | "\"" | "#" | NEWLINE }
+unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
+string = @{ (unquoted_string_elements+)| ("\"" ~ ANY* ~ "\"") } 
+
+inline_value = { number | inline_array | string }
+
+inline_array = { "[" ~ spaces ~ inline_value ~(spaces ~ "," ~ spaces ~ inline_value) ~ spaces ~ "]" }
+block_array_element = { "-" ~ spaces ~ yaml_value }
+block_array = { commentnl* ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
+array = { inline_array | block_array }
+
+
+yaml_value = { hash | array | inline_value }
+hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ yaml_value}
+hash = { commentnl* ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
+
+comment_text = { (!(NEWLINE) ~ ANY)* }
+comment_base = _{ SPACE_SEPARATOR* ~ "#" ~ comment_text  }
+commentnl = { comment_base ~ NEWLINE }
+comment = { comment_base }
+
+document = { hash | array }
+yaml = { "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE ~ (comment ~ NEWLINE?)* }
+
