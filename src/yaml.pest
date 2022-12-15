@@ -25,9 +25,10 @@ inline_array = { "[" ~ spaces ~ inline_value ~ (spaces ~ "," ~ spaces ~ inline_v
 block_array_element = { "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
 block_array = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
+alternative_array = { block_array_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 
 block_array_yaml_value = { alternative_yaml_value | yaml_value }
-alternative_yaml_value = { alternative_hash }
+alternative_yaml_value = { alternative_hash | alternative_array }
 
 yaml_value = { hash | array | string_multiline_folded | string_multiline_literal | inline_value }
 hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ yaml_value}
