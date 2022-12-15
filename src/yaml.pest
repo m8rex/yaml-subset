@@ -1,6 +1,7 @@
 space = _{ " " | NEWLINE }
 spaces = _{ space* }
 hash_key = { (LETTER | NUMBER | "_")+ }
+alias_name = { (LETTER | NUMBER | "_")+ }
 
 number = @{
     "-"?
@@ -19,18 +20,20 @@ string = { unquoted_string | quoted_string }
 string_multiline_folded = { ">" ~ (NEWLINE ~ unquoted_string)* }
 string_multiline_literal = { "|" ~ (NEWLINE ~ unquoted_string)* }
 
-inline_value = { inline_array | inline_hash | string }
+anchor = { "*" ~ alias_name }
+alias = { "&" ~ alias_name }
+inline_value = { (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | string) }
 
-inline_array = { "[" ~ (spaces ~ "," ~ spaces ~ inline_value)* ~ spaces ~ "]" }
-block_array_element = { "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
+inline_array = _{ "[" ~ (spaces ~ "," ~ spaces ~ inline_value)* ~ spaces ~ "]" }
+block_array_element = _{ "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
 block_array = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
 alternative_array = { block_array_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 
-block_array_yaml_value = { alternative_yaml_value | yaml_value }
-alternative_yaml_value = { alternative_hash | alternative_array }
+block_array_yaml_value = _{ alternative_yaml_value | yaml_value }
+alternative_yaml_value = { (alias ~ spaces)? ~  (alternative_hash | alternative_array) }
 
-yaml_value = { hash | array | string_multiline_folded | string_multiline_literal | inline_value }
+yaml_value = _{ (alias ~ SPACE_SEPARATOR*)? ~ (hash | array | string_multiline_folded | string_multiline_literal | inline_value) }
 hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ yaml_value}
 hash = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
