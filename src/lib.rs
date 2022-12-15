@@ -53,17 +53,27 @@ pub enum DocumentData {
 use pest::error::Error;
 
 fn parse_yaml_file(file: &str) -> Result<Vec<DocumentData>, Error<Rule>> {
-    let pairs = YamlParser::parse(Rule::yaml, file)?;
+    let pairs = YamlParser::parse(Rule::yaml, file)?
+        .next()
+        .unwrap()
+        .into_inner();
     Ok(pairs
-        .map(|p| match p.as_rule() {
-            Rule::document => DocumentData::Yaml(parse_value(p.into_inner().next().unwrap())),
-            Rule::commentnl | Rule::comment => DocumentData::Comment(comment(p)),
-            _ => unreachable!(),
+        .filter_map(|p| match p.as_rule() {
+            Rule::document => Some(DocumentData::Yaml(parse_value(
+                p.into_inner().next().unwrap(),
+            ))),
+            Rule::commentnl | Rule::comment => Some(DocumentData::Comment(comment(p))),
+            Rule::EOI => None,
+            _ => unreachable!("{:?}", p),
         })
         .collect())
 }
 
 fn comment(pair: Pair<Rule>) -> String {
+    pair.into_inner().next().unwrap().as_str().to_string()
+}
+
+fn alias(pair: Pair<Rule>) -> String {
     pair.into_inner().next().unwrap().as_str().to_string()
 }
 
@@ -101,7 +111,7 @@ fn parse_hash_element(mut pairs: Pairs<Rule>) -> HashElement {
         key,
         value: if let Some(value) = pairs.next() {
             AliasedYaml {
-                alias: Some(item2.as_str().to_string()),
+                alias: Some(alias(item2)),
                 value: parse_value(value),
             }
         } else {
@@ -130,7 +140,7 @@ fn parse_array_element(mut pairs: Pairs<Rule>) -> AliasedYaml {
 
     if let Some(value) = pairs.next() {
         AliasedYaml {
-            alias: Some(item1.as_str().to_string()),
+            alias: Some(alias(item1)),
             value: parse_value(value),
         }
     } else {
@@ -140,13 +150,26 @@ fn parse_array_element(mut pairs: Pairs<Rule>) -> AliasedYaml {
         }
     }
 }
-/*
+
 #[cfg(test)]
 mod tests {
-    use super::parser;
+    use super::parse_yaml_file;
+
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn basic() {
+        let inp = r#"---
+# test
+k: &anch test
+# hi
+v: &ok
+   - &ok2 test
+# comment
+   - *test
+v: test # maybe
+k: [5, 10, "e"]
+# after
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
     }
-}*/
+}

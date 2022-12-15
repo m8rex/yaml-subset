@@ -9,3 +9,6 @@ edition = "2021"
 pest = "2.5.1"
 pest_derive = "2.5.1"
 linked-hash-map = "0.5.3"
+
+[dev-dependencies]
+insta = "1.23.0"

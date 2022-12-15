@@ -1,0 +1,121 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    [
+        Comment(
+            " test",
+        ),
+        Yaml(
+            Hash(
+                [
+                    Element(
+                        HashElement {
+                            key: "k",
+                            value: AliasedYaml {
+                                alias: Some(
+                                    "anch",
+                                ),
+                                value: String(
+                                    "test",
+                                ),
+                            },
+                        },
+                    ),
+                    Comment(
+                        " hi",
+                    ),
+                    Element(
+                        HashElement {
+                            key: "v",
+                            value: AliasedYaml {
+                                alias: Some(
+                                    "ok",
+                                ),
+                                value: Array(
+                                    [
+                                        Element(
+                                            AliasedYaml {
+                                                alias: Some(
+                                                    "ok2",
+                                                ),
+                                                value: String(
+                                                    "test",
+                                                ),
+                                            },
+                                        ),
+                                        Comment(
+                                            " comment",
+                                        ),
+                                        Element(
+                                            AliasedYaml {
+                                                alias: None,
+                                                value: Anchor(
+                                                    "test",
+                                                ),
+                                            },
+                                        ),
+                                    ],
+                                ),
+                            },
+                        },
+                    ),
+                    Element(
+                        HashElement {
+                            key: "v",
+                            value: AliasedYaml {
+                                alias: None,
+                                value: String(
+                                    "test ",
+                                ),
+                            },
+                        },
+                    ),
+                    InlineComment(
+                        " maybe",
+                    ),
+                    Element(
+                        HashElement {
+                            key: "k",
+                            value: AliasedYaml {
+                                alias: None,
+                                value: Array(
+                                    [
+                                        Element(
+                                            AliasedYaml {
+                                                alias: None,
+                                                value: String(
+                                                    "5",
+                                                ),
+                                            },
+                                        ),
+                                        Element(
+                                            AliasedYaml {
+                                                alias: None,
+                                                value: String(
+                                                    "10",
+                                                ),
+                                            },
+                                        ),
+                                        Element(
+                                            AliasedYaml {
+                                                alias: None,
+                                                value: String(
+                                                    "e",
+                                                ),
+                                            },
+                                        ),
+                                    ],
+                                ),
+                            },
+                        },
+                    ),
+                ],
+            ),
+        ),
+        Comment(
+            " after",
+        ),
+    ],
+)
