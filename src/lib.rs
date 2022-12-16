@@ -56,12 +56,16 @@ pub struct Document {
     items: Vec<DocumentData>,
 }
 
+fn indent(depth: usize) -> String {
+    (0..2 * depth).map(|_| " ").collect::<Vec<_>>().join("")
+}
+
 impl Document {
     fn format_depth(&self, f: &mut String, depth: usize) -> std::fmt::Result {
-        writeln!(f, "---")?;
+        write!(f, "---")?;
         for item in self.items.iter() {
             match item {
-                DocumentData::Comment(c) => writeln!(f, " #{}", c),
+                DocumentData::Comment(c) => write!(f, "\n#{}", c),
                 DocumentData::Yaml(y) => y.format(f, depth),
             }?;
         }
@@ -91,11 +95,14 @@ impl Yaml {
             Yaml::Hash(v) => {
                 for element in v.iter() {
                     match element {
-                        HashData::Comment(c) => write!(f, "\n#{}", c),
+                        HashData::Comment(c) => {
+                            writeln!(f, "")?;
+                            write!(f, "{}#{}", indent(depth), c)
+                        }
                         HashData::InlineComment(c) => write!(f, " #{}", c),
                         HashData::Element(v) => {
                             writeln!(f, "")?;
-                            write!(f, "{}:", v.key)?;
+                            write!(f, "{}{}:", indent(depth), v.key)?;
                             v.value.format(f, depth)
                         }
                     }?;
@@ -104,11 +111,14 @@ impl Yaml {
             }
             Yaml::Array(v) => {
                 for element in v.iter() {
-                    write!(f, "- ")?;
                     match element {
-                        ArrayData::Comment(c) => write!(f, "\n#{}", c),
+                        ArrayData::Comment(c) => write!(f, "\n{}#{}", indent(depth), c),
                         ArrayData::InlineComment(c) => write!(f, " #{}", c),
-                        ArrayData::Element(v) => v.format(f, depth),
+                        ArrayData::Element(v) => {
+                            writeln!(f, "")?;
+                            write!(f, "{}-", indent(depth))?;
+                            v.format(f, depth)
+                        }
                     }?
                 }
                 Ok(())
@@ -227,6 +237,18 @@ fn parse_array_element(mut pairs: Pairs<Rule>) -> AliasedYaml {
 #[cfg(test)]
 mod tests {
     use super::parse_yaml_file;
+
+    #[test]
+    fn indent() {
+        assert_eq!(super::indent(1), "  ".to_string());
+        assert_eq!(super::indent(2), "    ".to_string());
+        assert_eq!(super::indent(3), "      ".to_string());
+        assert_eq!(super::indent(4), "        ".to_string());
+        assert_eq!(super::indent(5), "          ".to_string());
+        assert_eq!(super::indent(6), "            ".to_string());
+        assert_eq!(super::indent(7), "              ".to_string());
+        assert_eq!(super::indent(8), "                ".to_string());
+    }
 
     #[test]
     fn basic() {
