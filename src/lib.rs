@@ -5,6 +5,7 @@ extern crate pest_derive;
 use linked_hash_map::LinkedHashMap;
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
+use std::fmt::Write;
 
 #[derive(Parser)]
 #[grammar = "yaml.pest"]
@@ -50,23 +51,95 @@ pub enum DocumentData {
     Yaml(Yaml),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Document {
+    items: Vec<DocumentData>,
+}
+
+impl Document {
+    fn format_depth(&self, f: &mut String, depth: usize) -> std::fmt::Result {
+        writeln!(f, "---")?;
+        for item in self.items.iter() {
+            match item {
+                DocumentData::Comment(c) => writeln!(f, " #{}", c),
+                DocumentData::Yaml(y) => y.format(f, depth),
+            }?;
+        }
+        Ok(())
+    }
+    pub fn format(&self) -> String {
+        let mut s = String::new();
+        self.format_depth(&mut s, 0).unwrap(); // TODO
+        s
+    }
+}
+
+impl AliasedYaml {
+    fn format(&self, f: &mut String, depth: usize) -> std::fmt::Result {
+        if let Some(alias) = self.alias.as_ref() {
+            write!(f, " &{}", alias)?;
+            self.value.format(f, depth + 1)
+        } else {
+            self.value.format(f, depth + 1)
+        }
+    }
+}
+
+impl Yaml {
+    fn format(&self, f: &mut String, depth: usize) -> std::fmt::Result {
+        match self {
+            Yaml::Hash(v) => {
+                for element in v.iter() {
+                    match element {
+                        HashData::Comment(c) => write!(f, "\n#{}", c),
+                        HashData::InlineComment(c) => write!(f, " #{}", c),
+                        HashData::Element(v) => {
+                            writeln!(f, "")?;
+                            write!(f, "{}:", v.key)?;
+                            v.value.format(f, depth)
+                        }
+                    }?;
+                }
+                Ok(())
+            }
+            Yaml::Array(v) => {
+                for element in v.iter() {
+                    write!(f, "- ")?;
+                    match element {
+                        ArrayData::Comment(c) => write!(f, "\n#{}", c),
+                        ArrayData::InlineComment(c) => write!(f, " #{}", c),
+                        ArrayData::Element(v) => v.format(f, depth),
+                    }?
+                }
+                Ok(())
+            }
+            Yaml::String(s) => {
+                write!(f, " {}", s) // TODO
+            }
+            Yaml::Anchor(a) => write!(f, " *{}", a),
+        }
+    }
+}
+
 use pest::error::Error;
 
-fn parse_yaml_file(file: &str) -> Result<Vec<DocumentData>, Error<Rule>> {
+fn parse_yaml_file(file: &str) -> Result<Document, Error<Rule>> {
     let pairs = YamlParser::parse(Rule::yaml, file)?
         .next()
         .unwrap()
         .into_inner();
-    Ok(pairs
-        .filter_map(|p| match p.as_rule() {
-            Rule::document => Some(DocumentData::Yaml(parse_value(
-                p.into_inner().next().unwrap(),
-            ))),
-            Rule::commentnl | Rule::comment => Some(DocumentData::Comment(comment(p))),
-            Rule::EOI => None,
-            _ => unreachable!("{:?}", p),
-        })
-        .collect())
+    Ok(Document {
+        items: pairs
+            .filter_map(|p| match p.as_rule() {
+                Rule::document => Some(DocumentData::Yaml(parse_value(
+                    p.into_inner().next().unwrap(),
+                ))),
+                Rule::commentnl | Rule::comment => Some(DocumentData::Comment(comment(p))),
+                Rule::EOI => None,
+                _ => unreachable!("{:?}", p),
+            })
+            .collect(),
+    })
 }
 
 fn comment(pair: Pair<Rule>) -> String {
@@ -206,5 +279,6 @@ k: - - j
 "#;
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format());
     }
 }
