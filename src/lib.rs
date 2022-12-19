@@ -56,68 +56,91 @@ pub struct Document {
     items: Vec<DocumentData>,
 }
 
-fn indent(depth: usize) -> String {
-    (0..2 * depth).map(|_| " ").collect::<Vec<_>>().join("")
+fn indent(amount: usize) -> String {
+    (0..amount).map(|_| " ").collect::<Vec<_>>().join("")
 }
 
 impl Document {
-    fn format_depth(&self, f: &mut String, depth: usize) -> std::fmt::Result {
-        write!(f, "---")?;
+    pub fn format(&self) -> Result<String, std::fmt::Error> {
+        let mut s = String::new();
+        write!(s, "---")?;
         for item in self.items.iter() {
             match item {
-                DocumentData::Comment(c) => write!(f, "\n#{}", c),
-                DocumentData::Yaml(y) => y.format(f, depth),
+                DocumentData::Comment(c) => write!(&mut s, "\n#{}", c),
+                DocumentData::Yaml(y) => y.format(&mut s, 0, None),
             }?;
         }
-        Ok(())
-    }
-    pub fn format(&self) -> String {
-        let mut s = String::new();
-        self.format_depth(&mut s, 0).unwrap(); // TODO
-        s
+        Ok(s)
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Parent {
+    Hash,
+    Array,
+}
+
 impl AliasedYaml {
-    fn format(&self, f: &mut String, depth: usize) -> std::fmt::Result {
+    fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         if let Some(alias) = self.alias.as_ref() {
             write!(f, " &{}", alias)?;
-            self.value.format(f, depth + 1)
+            self.value.format(f, spaces + 2, None)
         } else {
-            self.value.format(f, depth + 1)
+            self.value.format(f, spaces + 2, parent)
         }
     }
 }
 
 impl Yaml {
-    fn format(&self, f: &mut String, depth: usize) -> std::fmt::Result {
+    fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         match self {
             Yaml::Hash(v) => {
-                for element in v.iter() {
+                for (idx, element) in v.iter().enumerate() {
                     match element {
                         HashData::Comment(c) => {
-                            writeln!(f, "")?;
-                            write!(f, "{}#{}", indent(depth), c)
+                            write!(f, "\n{}#{}", indent(spaces), c)
                         }
                         HashData::InlineComment(c) => write!(f, " #{}", c),
                         HashData::Element(v) => {
-                            writeln!(f, "")?;
-                            write!(f, "{}{}:", indent(depth), v.key)?;
-                            v.value.format(f, depth)
+                            let element = Some(Parent::Hash);
+                            let same_line = match (element, parent) {
+                                (Some(_), Some(Parent::Array)) => idx == 0,
+                                _ => false,
+                            };
+
+                            if same_line {
+                                write!(f, " {}:", v.key)?;
+                            } else {
+                                writeln!(f, "")?;
+                                write!(f, "{}{}:", indent(spaces), v.key)?;
+                            };
+
+                            v.value.format(f, spaces, element)
                         }
                     }?;
                 }
                 Ok(())
             }
             Yaml::Array(v) => {
-                for element in v.iter() {
+                for (idx, element) in v.iter().enumerate() {
                     match element {
-                        ArrayData::Comment(c) => write!(f, "\n{}#{}", indent(depth), c),
+                        ArrayData::Comment(c) => write!(f, "\n{}#{}", indent(spaces), c),
                         ArrayData::InlineComment(c) => write!(f, " #{}", c),
                         ArrayData::Element(v) => {
-                            writeln!(f, "")?;
-                            write!(f, "{}-", indent(depth))?;
-                            v.format(f, depth)
+                            let element = Some(Parent::Array);
+                            let same_line = match (element, parent) {
+                                (Some(_), Some(Parent::Array)) => idx == 0,
+                                _ => false,
+                            };
+
+                            if same_line {
+                                write!(f, " -")?;
+                            } else {
+                                writeln!(f, "")?;
+                                write!(f, "{}-", indent(spaces))?;
+                            };
+
+                            v.format(f, spaces, element)
                         }
                     }?
                 }
@@ -240,14 +263,14 @@ mod tests {
 
     #[test]
     fn indent() {
-        assert_eq!(super::indent(1), "  ".to_string());
-        assert_eq!(super::indent(2), "    ".to_string());
-        assert_eq!(super::indent(3), "      ".to_string());
-        assert_eq!(super::indent(4), "        ".to_string());
-        assert_eq!(super::indent(5), "          ".to_string());
-        assert_eq!(super::indent(6), "            ".to_string());
-        assert_eq!(super::indent(7), "              ".to_string());
-        assert_eq!(super::indent(8), "                ".to_string());
+        assert_eq!(super::indent(1), " ".to_string());
+        assert_eq!(super::indent(2), "  ".to_string());
+        assert_eq!(super::indent(3), "   ".to_string());
+        assert_eq!(super::indent(4), "    ".to_string());
+        assert_eq!(super::indent(5), "     ".to_string());
+        assert_eq!(super::indent(6), "      ".to_string());
+        assert_eq!(super::indent(7), "       ".to_string());
+        assert_eq!(super::indent(8), "        ".to_string());
     }
 
     #[test]
@@ -301,6 +324,6 @@ k: - - j
 "#;
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
-        insta::assert_display_snapshot!(parsed.unwrap().format());
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
     }
 }
