@@ -1,0 +1,66 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "field",
+                                value: AliasedYaml {
+                                    alias: Some(
+                                        "test",
+                                    ),
+                                    value: Hash(
+                                        [],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "item",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Hash(
+                                        [],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "other",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Hash(
+                                        [
+                                            Comment(
+                                                " check",
+                                            ),
+                                            Element(
+                                                HashElement {
+                                                    key: "item",
+                                                    value: AliasedYaml {
+                                                        alias: None,
+                                                        value: Hash(
+                                                            [],
+                                                        ),
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

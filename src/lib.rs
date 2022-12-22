@@ -98,6 +98,9 @@ impl Yaml {
     fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         match self {
             Yaml::Hash(v) => {
+                if v.is_empty() {
+                    return write!(f, " {{}}");
+                }
                 for (idx, element) in v.iter().enumerate() {
                     match element {
                         HashData::Comment(c) => {
@@ -125,6 +128,9 @@ impl Yaml {
                 Ok(())
             }
             Yaml::Array(v) => {
+                if v.is_empty() {
+                    return write!(f, " []");
+                }
                 for (idx, element) in v.iter().enumerate() {
                     match element {
                         ArrayData::Comment(c) => write!(f, "\n{}#{}", indent(spaces), c),
@@ -249,6 +255,10 @@ fn parse_value(pair: Pair<Rule>) -> Yaml {
                 .map(|pair| parse_hash_data(pair))
                 .collect(),
         ),
+        Rule::inline_hash => Yaml::Hash(
+            // TODO
+            Vec::new(),
+        ),
         Rule::array | Rule::alternative_array => Yaml::Array(
             pair.into_inner()
                 .map(|pair| parse_array_data(pair))
@@ -354,6 +364,20 @@ k: [5, 10, "e"]
 "#;
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn inline_hash() {
+        let inp = r#"---
+field: &test {}
+item: {}
+other: # check
+  item: {}
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
     }
 
     #[test]

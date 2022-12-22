@@ -1,0 +1,18 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+# test
+k: &anch test
+# hi
+v: &ok
+  - &ok2 test
+  # comment
+  - *test
+v: test  # maybe
+k:
+  - 5
+  - 10
+  - e
+# after

@@ -1,0 +1,10 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+field: &test {}
+item: {}
+other:
+  # check
+  item: {}
