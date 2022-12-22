@@ -90,6 +90,10 @@ impl AliasedYaml {
     }
 }
 
+fn should_write_literal(s: &String) -> bool {
+    s.contains("\n") || s.contains("\\") // TODO
+}
+
 impl Yaml {
     fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         match self {
@@ -146,7 +150,16 @@ impl Yaml {
                 Ok(())
             }
             Yaml::String(s) => {
-                write!(f, " {}", s) // TODO
+                // TODO: Some way to choose between folded or literal?
+                if should_write_literal(s) {
+                    write!(f, " |")?;
+                    for line in s.split("\n") {
+                        write!(f, "\n{}{}", indent(spaces), line)?;
+                    }
+                    Ok(())
+                } else {
+                    write!(f, " {}", s)
+                }
             }
             Yaml::Anchor(a) => write!(f, " *{}", a),
         }
@@ -461,5 +474,6 @@ plus another line at the end.
 
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
     }
 }
