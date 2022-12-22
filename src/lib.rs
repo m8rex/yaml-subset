@@ -2,7 +2,6 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-use linked_hash_map::LinkedHashMap;
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use std::fmt::Write;
@@ -183,6 +182,53 @@ fn alias(pair: Pair<Rule>) -> String {
     pair.into_inner().next().unwrap().as_str().to_string()
 }
 
+fn handle_ending_newlines(s: String) -> String {
+    let ends_with_newline = s.ends_with("\n");
+    let mut result = s.trim_end_matches("\n").to_string();
+    if ends_with_newline {
+        result.push_str("\n");
+    }
+    result
+}
+
+fn parse_literal(lines: Vec<&str>) -> String {
+    let s = lines.join("\n");
+    handle_ending_newlines(s)
+}
+
+fn parse_folded(lines: Vec<&str>) -> String {
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let start = lines[0].to_string();
+
+    let result = lines
+        .into_iter()
+        .skip(1)
+        .fold((start, false), |(s, prev_was_empty), element| {
+            let mut c = s.clone(); // TODO
+            let is_empty = if element.is_empty() {
+                c.push_str("\n");
+                true
+            } else if element.starts_with(" ") {
+                c.push_str("\n");
+                c.push_str(element);
+                c.push_str("\n");
+                true
+            } else {
+                if !prev_was_empty {
+                    c.push_str(" ");
+                }
+                c.push_str(element);
+                false
+            };
+            (c, is_empty)
+        })
+        .0;
+    handle_ending_newlines(result)
+}
+
 fn parse_value(pair: Pair<Rule>) -> Yaml {
     match pair.as_rule() {
         Rule::hash | Rule::alternative_hash => Yaml::Hash(
@@ -196,6 +242,12 @@ fn parse_value(pair: Pair<Rule>) -> Yaml {
                 .collect(),
         ),
         Rule::string => Yaml::String(pair.into_inner().next().unwrap().as_str().to_string()),
+        Rule::string_multiline_literal => Yaml::String(parse_literal(
+            pair.into_inner().map(|p| p.as_str()).collect::<Vec<_>>(),
+        )),
+        Rule::string_multiline_folded => Yaml::String(parse_folded(
+            pair.into_inner().map(|p| p.as_str()).collect::<Vec<_>>(),
+        )),
         Rule::anchor => Yaml::Anchor(pair.into_inner().next().unwrap().as_str().to_string()),
         _ => unreachable!("{:?}", pair),
     }
@@ -325,5 +377,89 @@ k: - - j
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
         insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn parse_folded() {
+        let input = vec![
+            "Several lines of text,",
+            r#"with some "quotes" of various 'types',"#,
+            "and also a blank line:",
+            "",
+            "and some text with",
+            "  extra indentation",
+            "on the next line,",
+            "plus another line at the end.",
+            "",
+            "",
+        ];
+        assert_eq!(
+            super::parse_folded(input),
+            r#"Several lines of text, with some "quotes" of various 'types', and also a blank line:
+and some text with
+  extra indentation
+on the next line, plus another line at the end.
+"#
+        )
+    }
+
+    #[test]
+    fn parse_literal() {
+        let input = vec![
+            "Several lines of text,",
+            r#"with some "quotes" of various 'types',"#,
+            "and also a blank line:",
+            "",
+            "and some text with",
+            "  extra indentation",
+            "on the next line,",
+            "plus another line at the end.",
+            "",
+            "",
+        ];
+        assert_eq!(
+            super::parse_literal(input),
+            r#"Several lines of text,
+with some "quotes" of various 'types',
+and also a blank line:
+
+and some text with
+  extra indentation
+on the next line,
+plus another line at the end.
+"#
+        )
+    }
+
+    #[test]
+    fn block_scalars() {
+        // see https://yaml-multiline.info/
+        let inp = r#"---
+        newlines: &newline |
+                  Several lines of text,
+                  with some "quotes" of various 'types',
+                  and also a blank line:
+                  
+                  and some text with
+                    extra indentation
+                  on the next line,
+                  plus another line at the end.
+                  
+        folded: &folded >
+                  Several lines of text,
+                  with some "quotes" of various 'types',
+                  and also a blank line:
+                  
+                  and some text with
+                  extra indentation
+                  on the next line,
+                  plus another line at the end.
+                  
+                  
+                  
+        test: 5"#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
     }
 }

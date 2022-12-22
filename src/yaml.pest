@@ -17,8 +17,10 @@ string_value = { (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
 quoted_string = _{  (PUSH("\"") ~ string_value ~ POP) }
 string = { unquoted_string | quoted_string } 
 
-string_multiline_folded = { ">" ~ (NEWLINE ~ unquoted_string)* }
-string_multiline_literal = { "|" ~ (NEWLINE ~ unquoted_string)* }
+block_string = @{ (!NEWLINE ~ ANY)+ | "" }
+string_multiline_content = _{ " "* ~ NEWLINE ~ (PEEK_ALL ~ PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK_ALL ~ block_string)* ~ DROP }
+string_multiline_folded = { ">" ~ string_multiline_content }
+string_multiline_literal = { "|"  ~ string_multiline_content }
 
 anchor = { "*" ~ alias_name }
 alias = { "&" ~ alias_name }
@@ -49,5 +51,3 @@ comment = { comment_base }
 
 document = { hash | array }
 yaml = { SOI ~ "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE? ~ (comment ~ NEWLINE?)* ~ EOI }
-
-
