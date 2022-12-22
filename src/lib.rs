@@ -168,7 +168,7 @@ impl Yaml {
 
 use pest::error::Error;
 
-fn parse_yaml_file(file: &str) -> Result<Document, Error<Rule>> {
+pub fn parse_yaml_file(file: &str) -> Result<Document, Error<Rule>> {
     let pairs = YamlParser::parse(Rule::yaml, file)?
         .next()
         .unwrap()
