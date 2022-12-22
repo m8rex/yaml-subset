@@ -94,6 +94,10 @@ fn should_write_literal(s: &String) -> bool {
     s.contains("\n") || s.contains("\\") // TODO
 }
 
+fn needs_quotes(s: &String) -> bool {
+    s.is_empty() || s.contains(": ") || s.contains(" #")
+}
+
 impl Yaml {
     fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         match self {
@@ -164,7 +168,11 @@ impl Yaml {
                     }
                     Ok(())
                 } else {
-                    write!(f, " {}", s)
+                    if needs_quotes(s) {
+                        write!(f, " \"{}\"", s)
+                    } else {
+                        write!(f, " {}", s)
+                    }
                 }
             }
             Yaml::Anchor(a) => write!(f, " *{}", a),
