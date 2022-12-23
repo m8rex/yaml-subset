@@ -16,7 +16,7 @@ disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#
 unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
 unquoted_string = @{ unquoted_string_elements+ }
 string_value = @{ (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
-quoted_string = {  (PUSH("\"") ~ string_value ~ POP) }
+quoted_string = { PUSH("\"") ~ string_value ~ POP ~ SPACE_SEPARATOR* }
 string = { unquoted_string | quoted_string }
 inline_array_string = { unquoted_inline_string | quoted_string }
 
@@ -57,4 +57,4 @@ blank = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | NEWLINE?
 blanknl = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | NEWLINE }
 
 document = { hash | array }
-yaml = { SOI ~ "---" ~ blanknl ~ commentnl* ~ document ~ blank ~ (comment ~ blank)* ~ EOI }
+yaml = { SOI ~ "---" ~ blanknl ~ commentnl* ~ document ~ blank ~ (comment ~ blank)* ~ spaces ~ EOI }
