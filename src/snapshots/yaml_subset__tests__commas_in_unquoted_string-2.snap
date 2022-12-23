@@ -1,0 +1,10 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+inline_array:
+  - test
+  - 5
+  - hi
+s: &key test, 5, hi

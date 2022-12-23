@@ -272,6 +272,9 @@ fn parse_value(pair: Pair<Rule>) -> Yaml {
                 .map(|pair| parse_array_data(pair))
                 .collect(),
         ),
+        Rule::inline_array_string => {
+            Yaml::String(pair.into_inner().next().unwrap().as_str().to_string())
+        }
         Rule::string => Yaml::String(pair.into_inner().next().unwrap().as_str().to_string()),
         Rule::string_multiline_literal => Yaml::String(parse_literal(
             pair.into_inner().map(|p| p.as_str()).collect::<Vec<_>>(),
@@ -504,6 +507,17 @@ plus another line at the end.
                   
         test: 5"#;
 
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn commas_in_unquoted_string() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+"#;
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
         insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());

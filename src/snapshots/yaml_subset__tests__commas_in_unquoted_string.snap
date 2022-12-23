@@ -1,0 +1,65 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "inline_array",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "test",
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "5",
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "hi",
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "s",
+                                value: AliasedYaml {
+                                    alias: Some(
+                                        "key",
+                                    ),
+                                    value: String(
+                                        "test, 5, hi",
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

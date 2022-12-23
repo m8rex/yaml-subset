@@ -9,13 +9,16 @@ number = @{
     ~ ("." ~ ASCII_DIGIT*)?
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
-
-disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | "," | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
+disallowed_unquoted_inline_string_elements = { "," | "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
+unquoted_inline_string_elements = { !(disallowed_unquoted_inline_string_elements) ~ ANY } 
+unquoted_inline_string = @{ unquoted_inline_string_elements+ }
+disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
 unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
 unquoted_string = @{ unquoted_string_elements+ }
 string_value = { (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
 quoted_string = _{  (PUSH("\"") ~ string_value ~ POP) }
-string = { unquoted_string | quoted_string } 
+string = { unquoted_string | quoted_string }
+inline_array_string = { unquoted_inline_string | quoted_string }
 
 block_string = @{ (!NEWLINE ~ ANY)+ | "" }
 string_multiline_content = _{ " "* ~ NEWLINE ~ (PEEK_ALL ~ PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK_ALL ~ block_string)* ~ DROP }
@@ -24,9 +27,10 @@ string_multiline_literal = { "|"  ~ string_multiline_content }
 
 anchor = { "*" ~ alias_name }
 alias = { "&" ~ alias_name }
-inline_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | string) }
+inline_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | string ) }
+inline_array_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | inline_array_string ) }
 
-inline_array = _{ "[" ~ (spaces ~ inline_value ~ (spaces ~ "," ~ spaces ~ inline_value)*)? ~ spaces ~ "]" }
+inline_array = _{ "[" ~ (spaces ~ inline_array_value ~ (spaces ~ "," ~ spaces ~ inline_array_value)*)? ~ spaces ~ "]" }
 block_array_element = { "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
 block_array = _{ commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
@@ -35,7 +39,7 @@ alternative_array = { block_array_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPA
 block_array_yaml_value = _{ alternative_yaml_value | yaml_value }
 alternative_yaml_value = _{ (alias ~ spaces)? ~  (alternative_hash | alternative_array) }
 
-yaml_value = _{ (alias ~ SPACE_SEPARATOR*)? ~ (hash | array | string_multiline_folded | string_multiline_literal | inline_value) }
+yaml_value = _{ (alias ~ SPACE_SEPARATOR*)? ~ (hash | array | string_multiline_literal | string_multiline_folded | inline_value) }
 hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ block_array_yaml_value}
 hash = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
@@ -51,3 +55,4 @@ comment = { comment_base }
 
 document = { hash | array }
 yaml = { SOI ~ "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE? ~ (comment ~ NEWLINE?)* ~ EOI }
+

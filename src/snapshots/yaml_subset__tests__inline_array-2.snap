@@ -1,0 +1,9 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+value:
+  - test
+  - 5
+  - hi

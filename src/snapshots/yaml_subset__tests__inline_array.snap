@@ -1,0 +1,52 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "value",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "test",
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "5",
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: String(
+                                                        "hi",
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)
