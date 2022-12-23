@@ -443,6 +443,7 @@ other: # check
 # test
 k: &anch test
 # hi
+
 v: &ok
    - &ok2 test
 # comment
@@ -452,16 +453,22 @@ k: &kk [5, 10, "e"]
 # after
 y: - x: 5
      z: &zfield 6 # yess
+
    - n: 8
+
    - j
 # between
 z: - *kk
+
    - ke
 k: - - j
      - k
+
      - l
    - - m
      - z: k
+
+
        t: - m: l # comment
             p: 4 # comment
           - m # after m

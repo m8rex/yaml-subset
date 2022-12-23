@@ -15,13 +15,13 @@ unquoted_inline_string = @{ unquoted_inline_string_elements+ }
 disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
 unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
 unquoted_string = @{ unquoted_string_elements+ }
-string_value = { (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
+string_value = @{ (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
 quoted_string = {  (PUSH("\"") ~ string_value ~ POP) }
 string = { unquoted_string | quoted_string }
 inline_array_string = { unquoted_inline_string | quoted_string }
 
 block_string = @{ (!NEWLINE ~ ANY)+ | "" }
-string_multiline_content = _{ " "* ~ NEWLINE ~ (PEEK_ALL ~ PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK_ALL ~ block_string)* ~ DROP }
+string_multiline_content = _{ blanknl ~ (PEEK_ALL ~ PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK_ALL ~ block_string)* ~ DROP }
 string_multiline_folded = { ">" ~ string_multiline_content }
 string_multiline_literal = { "|"  ~ string_multiline_content }
 
@@ -32,27 +32,29 @@ inline_array_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash
 
 inline_array = _{ "[" ~ (spaces ~ inline_array_value ~ (spaces ~ "," ~ spaces ~ inline_array_value)*)? ~ spaces ~ "]" }
 block_array_element = { "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
-block_array = _{ commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
+block_array = _{ commentnl* ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (blank ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
-alternative_array = { block_array_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (NEWLINE ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
+alternative_array = { block_array_element ~ comment? ~ blanknl ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (blanknl ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 
 block_array_yaml_value = _{ alternative_yaml_value | yaml_value }
 alternative_yaml_value = _{ (alias ~ spaces)? ~  (alternative_hash | alternative_array) }
 
 yaml_value = _{ (alias ~ SPACE_SEPARATOR*)? ~ (hash | array | string_multiline_literal | string_multiline_folded | inline_value) }
-hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | NEWLINE) ~ block_array_yaml_value}
-hash = { commentnl* ~ NEWLINE? ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
+hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | blanknl) ~ block_array_yaml_value}
+hash = { commentnl* ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (blanknl ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
-alternative_hash = { hash_element ~ comment? ~ NEWLINE ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (NEWLINE ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
+alternative_hash = { hash_element ~ comment? ~ blanknl ~ PUSH(SPACE_SEPARATOR*) ~ hash_element ~ comment? ~ (blanknl ~ commentnl* ~ PEEK ~ hash_element ~ comment?)* ~ DROP ~ commentnl* }
 
 
 inline_hash = { "{" ~ spaces ~ "}" }
 
 comment_text = { (!(NEWLINE) ~ ANY)* }
 comment_base = _{ SPACE_SEPARATOR* ~ "#" ~ comment_text  }
-commentnl = { comment_base ~ NEWLINE }
+commentnl = { (comment_base ~ blank) }
 comment = { comment_base }
 
-document = { hash | array }
-yaml = { SOI ~ "---" ~ NEWLINE ~ commentnl* ~ document ~ NEWLINE? ~ (comment ~ NEWLINE?)* ~ EOI }
+blank = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | NEWLINE? }
+blanknl = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | NEWLINE }
 
+document = { hash | array }
+yaml = { SOI ~ "---" ~ blanknl ~ commentnl* ~ document ~ blank ~ (comment ~ blank)* ~ EOI }
