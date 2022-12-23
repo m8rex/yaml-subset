@@ -32,9 +32,14 @@ pub enum ArrayData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Yaml {
+    EmptyInlineHash,
     Hash(Vec<HashData>),
+    InlineArray(Vec<Yaml>),
     Array(Vec<ArrayData>),
-    String(String),
+    QuotedString(String),
+    UnquotedString(String),
+    FoldedString(Vec<String>),
+    LiteralString(Vec<String>),
     Anchor(String),
 }
 
@@ -101,6 +106,9 @@ fn needs_quotes(s: &String) -> bool {
 impl Yaml {
     fn format(&self, f: &mut String, spaces: usize, parent: Option<Parent>) -> std::fmt::Result {
         match self {
+            Yaml::EmptyInlineHash => {
+                write!(f, " {{}}")
+            }
             Yaml::Hash(v) => {
                 if v.is_empty() {
                     return write!(f, " {{}}");
@@ -131,6 +139,17 @@ impl Yaml {
                 }
                 Ok(())
             }
+            Yaml::InlineArray(v) => {
+                write!(f, " [");
+                for (idx, element) in v.iter().enumerate() {
+                    if idx > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, " ",);
+                    element.format(f, spaces, None);
+                }
+                write!(f, " ]")
+            }
             Yaml::Array(v) => {
                 if v.is_empty() {
                     return write!(f, " []");
@@ -159,7 +178,27 @@ impl Yaml {
                 }
                 Ok(())
             }
-            Yaml::String(s) => {
+            Yaml::UnquotedString(s) => {
+                write!(f, " {}", s)
+            }
+            Yaml::QuotedString(s) => {
+                write!(f, " \"{}\"", s)
+            }
+            Yaml::LiteralString(lines) => {
+                write!(f, " |")?;
+                for line in lines.iter() {
+                    write!(f, "\n{}{}", indent(spaces), line)?;
+                }
+                Ok(())
+            }
+            Yaml::FoldedString(lines) => {
+                write!(f, " >")?;
+                for line in lines.iter() {
+                    write!(f, "\n{}{}", indent(spaces), line)?;
+                }
+                Ok(())
+            }
+            /*Yaml::String(s) => { // assumed that newline etc were parsed in folded and literal
                 // TODO: Some way to choose between folded or literal?
                 if should_write_literal(s) {
                     write!(f, " |")?;
@@ -174,7 +213,7 @@ impl Yaml {
                         write!(f, " {}", s)
                     }
                 }
-            }
+            }*/
             Yaml::Anchor(a) => write!(f, " *{}", a),
         }
     }
@@ -272,16 +311,23 @@ fn parse_value(pair: Pair<Rule>) -> Yaml {
                 .map(|pair| parse_array_data(pair))
                 .collect(),
         ),
-        Rule::inline_array_string => {
-            Yaml::String(pair.into_inner().next().unwrap().as_str().to_string())
+        Rule::inline_array_string => parse_value(pair.into_inner().next().unwrap()),
+        Rule::string => parse_value(pair.into_inner().next().unwrap()),
+        Rule::unquoted_string => Yaml::UnquotedString(pair.as_str().to_string()),
+        Rule::unquoted_inline_string => Yaml::UnquotedString(pair.as_str().to_string()),
+        Rule::quoted_string => {
+            Yaml::QuotedString(pair.into_inner().next().unwrap().as_str().to_string())
         }
-        Rule::string => Yaml::String(pair.into_inner().next().unwrap().as_str().to_string()),
-        Rule::string_multiline_literal => Yaml::String(parse_literal(
-            pair.into_inner().map(|p| p.as_str()).collect::<Vec<_>>(),
-        )),
-        Rule::string_multiline_folded => Yaml::String(parse_folded(
-            pair.into_inner().map(|p| p.as_str()).collect::<Vec<_>>(),
-        )),
+        Rule::string_multiline_literal => Yaml::LiteralString(
+            pair.into_inner()
+                .map(|p| p.as_str().to_string())
+                .collect::<Vec<_>>(),
+        ),
+        Rule::string_multiline_folded => Yaml::FoldedString(
+            pair.into_inner()
+                .map(|p| p.as_str().to_string())
+                .collect::<Vec<_>>(),
+        ),
         Rule::anchor => Yaml::Anchor(pair.into_inner().next().unwrap().as_str().to_string()),
         _ => unreachable!("{:?}", pair),
     }
@@ -499,7 +545,7 @@ plus another line at the end.
                   and also a blank line:
                   
                   and some text with
-                  extra indentation
+                    extra indentation
                   on the next line,
                   plus another line at the end.
                   

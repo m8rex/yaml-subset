@@ -18,7 +18,7 @@ Ok(
                                     alias: Some(
                                         "anch",
                                     ),
-                                    value: String(
+                                    value: UnquotedString(
                                         "test",
                                     ),
                                 },
@@ -41,7 +41,7 @@ Ok(
                                                     alias: Some(
                                                         "ok2",
                                                     ),
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "test",
                                                     ),
                                                 },
@@ -67,7 +67,7 @@ Ok(
                                 key: "v",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: String(
+                                    value: UnquotedString(
                                         "test ",
                                     ),
                                 },
@@ -86,7 +86,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "5",
                                                     ),
                                                 },
@@ -94,7 +94,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "10",
                                                     ),
                                                 },
@@ -102,7 +102,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: QuotedString(
                                                         "e",
                                                     ),
                                                 },

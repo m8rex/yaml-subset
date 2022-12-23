@@ -14,7 +14,7 @@ v: test  # maybe
 k: &kk
   - 5
   - 10
-  - e
+  - "e"
 # after
 y:
   - x: 5

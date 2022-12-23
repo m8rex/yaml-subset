@@ -18,7 +18,7 @@ Ok(
                                     alias: Some(
                                         "anch",
                                     ),
-                                    value: String(
+                                    value: UnquotedString(
                                         "test",
                                     ),
                                 },
@@ -41,7 +41,7 @@ Ok(
                                                     alias: Some(
                                                         "ok2",
                                                     ),
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "test",
                                                     ),
                                                 },
@@ -70,7 +70,7 @@ Ok(
                                 key: "v",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: String(
+                                    value: UnquotedString(
                                         "test ",
                                     ),
                                 },
@@ -91,7 +91,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "5",
                                                     ),
                                                 },
@@ -99,7 +99,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "10",
                                                     ),
                                                 },
@@ -107,7 +107,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: QuotedString(
                                                         "e",
                                                     ),
                                                 },
@@ -137,7 +137,7 @@ Ok(
                                                                     key: "x",
                                                                     value: AliasedYaml {
                                                                         alias: None,
-                                                                        value: String(
+                                                                        value: UnquotedString(
                                                                             "5",
                                                                         ),
                                                                     },
@@ -150,7 +150,7 @@ Ok(
                                                                         alias: Some(
                                                                             "zfield",
                                                                         ),
-                                                                        value: String(
+                                                                        value: UnquotedString(
                                                                             "6 ",
                                                                         ),
                                                                     },
@@ -173,7 +173,7 @@ Ok(
                                                                     key: "n",
                                                                     value: AliasedYaml {
                                                                         alias: None,
-                                                                        value: String(
+                                                                        value: UnquotedString(
                                                                             "8",
                                                                         ),
                                                                     },
@@ -186,7 +186,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "j",
                                                     ),
                                                 },
@@ -217,7 +217,7 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: String(
+                                                    value: UnquotedString(
                                                         "ke",
                                                     ),
                                                 },
@@ -242,7 +242,7 @@ Ok(
                                                             Element(
                                                                 AliasedYaml {
                                                                     alias: None,
-                                                                    value: String(
+                                                                    value: UnquotedString(
                                                                         "j",
                                                                     ),
                                                                 },
@@ -250,7 +250,7 @@ Ok(
                                                             Element(
                                                                 AliasedYaml {
                                                                     alias: None,
-                                                                    value: String(
+                                                                    value: UnquotedString(
                                                                         "k",
                                                                     ),
                                                                 },
@@ -258,7 +258,7 @@ Ok(
                                                             Element(
                                                                 AliasedYaml {
                                                                     alias: None,
-                                                                    value: String(
+                                                                    value: UnquotedString(
                                                                         "l",
                                                                     ),
                                                                 },
@@ -275,7 +275,7 @@ Ok(
                                                             Element(
                                                                 AliasedYaml {
                                                                     alias: None,
-                                                                    value: String(
+                                                                    value: UnquotedString(
                                                                         "m",
                                                                     ),
                                                                 },
@@ -290,7 +290,7 @@ Ok(
                                                                                     key: "z",
                                                                                     value: AliasedYaml {
                                                                                         alias: None,
-                                                                                        value: String(
+                                                                                        value: UnquotedString(
                                                                                             "k",
                                                                                         ),
                                                                                     },
@@ -313,7 +313,7 @@ Ok(
                                                                                                                         key: "m",
                                                                                                                         value: AliasedYaml {
                                                                                                                             alias: None,
-                                                                                                                            value: String(
+                                                                                                                            value: UnquotedString(
                                                                                                                                 "l ",
                                                                                                                             ),
                                                                                                                         },
@@ -327,7 +327,7 @@ Ok(
                                                                                                                         key: "p",
                                                                                                                         value: AliasedYaml {
                                                                                                                             alias: None,
-                                                                                                                            value: String(
+                                                                                                                            value: UnquotedString(
                                                                                                                                 "4 ",
                                                                                                                             ),
                                                                                                                         },
@@ -343,7 +343,7 @@ Ok(
                                                                                                 Element(
                                                                                                     AliasedYaml {
                                                                                                         alias: None,
-                                                                                                        value: String(
+                                                                                                        value: UnquotedString(
                                                                                                             "m ",
                                                                                                         ),
                                                                                                     },
