@@ -10,7 +10,7 @@ v: &ok
   - &ok2 test
   # comment
   - *test # an anchor
-v: test  # maybe
+v: test # maybe
 k: &kk
   - 5
   - 10
@@ -18,7 +18,7 @@ k: &kk
 # after
 y:
   - x: 5
-    z: &zfield 6  # yess
+    z: &zfield 6 # yess
   - n: 8
   - j
 # between
@@ -32,8 +32,8 @@ k:
   - - m
     - z: k
       t:
-        - m: l  # comment
-          p: 4  # comment
-        - m  # after m
+        - m: l # comment
+          p: 4 # comment
+        - m # after m
 # wow
 # something else

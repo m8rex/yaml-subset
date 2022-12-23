@@ -68,7 +68,7 @@ Ok(
                                 value: AliasedYaml {
                                     alias: None,
                                     value: UnquotedString(
-                                        "test ",
+                                        "test",
                                     ),
                                 },
                             },

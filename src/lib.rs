@@ -140,12 +140,12 @@ impl Yaml {
                 Ok(())
             }
             Yaml::InlineArray(v) => {
-                write!(f, " [");
+                write!(f, " [")?;
                 for (idx, element) in v.iter().enumerate() {
                     if idx > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, " ",);
+                    write!(f, " ",)?;
                     element.format(f, spaces, None);
                 }
                 write!(f, " ]")
@@ -198,22 +198,6 @@ impl Yaml {
                 }
                 Ok(())
             }
-            /*Yaml::String(s) => { // assumed that newline etc were parsed in folded and literal
-                // TODO: Some way to choose between folded or literal?
-                if should_write_literal(s) {
-                    write!(f, " |")?;
-                    for line in s.split("\n") {
-                        write!(f, "\n{}{}", indent(spaces), line)?;
-                    }
-                    Ok(())
-                } else {
-                    if needs_quotes(s) {
-                        write!(f, " \"{}\"", s)
-                    } else {
-                        write!(f, " {}", s)
-                    }
-                }
-            }*/
             Yaml::Anchor(a) => write!(f, " *{}", a),
         }
     }
@@ -248,6 +232,7 @@ fn alias(pair: Pair<Rule>) -> String {
     pair.into_inner().next().unwrap().as_str().to_string()
 }
 
+/// handle ending newlines for literal and folded strings
 fn handle_ending_newlines(s: String) -> String {
     let ends_with_newline = s.ends_with("\n");
     let mut result = s.trim_end_matches("\n").to_string();
@@ -257,11 +242,13 @@ fn handle_ending_newlines(s: String) -> String {
     result
 }
 
+/// Parse literal string to string
 fn parse_literal(lines: Vec<&str>) -> String {
     let s = lines.join("\n");
     handle_ending_newlines(s)
 }
 
+/// Parse folded string to string
 fn parse_folded(lines: Vec<&str>) -> String {
     if lines.is_empty() {
         return String::new();
@@ -313,8 +300,12 @@ fn parse_value(pair: Pair<Rule>) -> Yaml {
         ),
         Rule::inline_array_string => parse_value(pair.into_inner().next().unwrap()),
         Rule::string => parse_value(pair.into_inner().next().unwrap()),
-        Rule::unquoted_string => Yaml::UnquotedString(pair.as_str().to_string()),
-        Rule::unquoted_inline_string => Yaml::UnquotedString(pair.as_str().to_string()),
+        Rule::unquoted_string => {
+            Yaml::UnquotedString(pair.as_str().to_string().trim_end_matches(" ").to_string())
+        }
+        Rule::unquoted_inline_string => {
+            Yaml::UnquotedString(pair.as_str().to_string().trim_end_matches(" ").to_string())
+        }
         Rule::quoted_string => {
             Yaml::QuotedString(pair.into_inner().next().unwrap().as_str().to_string())
         }

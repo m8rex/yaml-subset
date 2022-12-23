@@ -10,7 +10,7 @@ v: &ok
   - &ok2 test
   # comment
   - *test
-v: test  # maybe
+v: test # maybe
 k:
   - 5
   - 10

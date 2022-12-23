@@ -71,7 +71,7 @@ Ok(
                                 value: AliasedYaml {
                                     alias: None,
                                     value: UnquotedString(
-                                        "test ",
+                                        "test",
                                     ),
                                 },
                             },
@@ -151,7 +151,7 @@ Ok(
                                                                             "zfield",
                                                                         ),
                                                                         value: UnquotedString(
-                                                                            "6 ",
+                                                                            "6",
                                                                         ),
                                                                     },
                                                                 },
@@ -314,7 +314,7 @@ Ok(
                                                                                                                         value: AliasedYaml {
                                                                                                                             alias: None,
                                                                                                                             value: UnquotedString(
-                                                                                                                                "l ",
+                                                                                                                                "l",
                                                                                                                             ),
                                                                                                                         },
                                                                                                                     },
@@ -328,7 +328,7 @@ Ok(
                                                                                                                         value: AliasedYaml {
                                                                                                                             alias: None,
                                                                                                                             value: UnquotedString(
-                                                                                                                                "4 ",
+                                                                                                                                "4",
                                                                                                                             ),
                                                                                                                         },
                                                                                                                     },
@@ -344,7 +344,7 @@ Ok(
                                                                                                     AliasedYaml {
                                                                                                         alias: None,
                                                                                                         value: UnquotedString(
-                                                                                                            "m ",
+                                                                                                            "m",
                                                                                                         ),
                                                                                                     },
                                                                                                 ),
