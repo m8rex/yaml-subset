@@ -1,0 +1,12 @@
+WHITESPACE = { " " }
+
+key_items = _{ !("[" | "]" | ".") ~ ANY }
+key = { key_items* }
+
+index_number = { ASCII_DIGIT+ }
+index_all = { "*" }
+index = _{ "[" ~ (index_number | index_all) ~ "]" }
+
+part = { ((".") ~ key) | index }
+path = { key ~ part* }  
+final_path = { path ~ EOI }
