@@ -824,6 +824,34 @@ s: &key test, 5, hi
     }
 
     #[test]
+    fn insert_hash_top() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: value
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "new".parse().unwrap();
+        let data = AliasedYaml {
+            alias: None,
+            value: Yaml::UnquotedString("value".to_string()),
+        };
+        assert_eq!(1, parsed.insert_into_hash(&path, &data, false));
+
+        let out = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: value
+new: value
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+
+    #[test]
     fn insert_hash() {
         let inp = r#"---
 inline_array: [test, 5, hi]
