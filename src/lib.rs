@@ -2,7 +2,7 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-use crate::path::YamlPath;
+pub use crate::path::YamlPath;
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use std::fmt::Write;
@@ -116,8 +116,8 @@ impl YamlInsert for HashData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HashElement {
-    key: String,
-    value: AliasedYaml,
+    pub key: String,
+    pub value: AliasedYaml,
 }
 
 impl YamlInsert for HashElement {
@@ -161,7 +161,7 @@ pub enum Yaml {
     Anchor(String),
 }
 
-trait YamlInsert {
+pub trait YamlInsert {
     /// Insert AliasedYaml into a hash
     /// Returns the amount of insertions.
     /// Can be more than 1 when using indexes or all array elements etc
@@ -275,8 +275,8 @@ impl YamlInsert for Yaml {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AliasedYaml {
-    alias: Option<String>,
-    value: Yaml,
+    pub alias: Option<String>,
+    pub value: Yaml,
 }
 
 impl YamlInsert for AliasedYaml {
