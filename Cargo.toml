@@ -1,6 +1,6 @@
 [package]
 name = "yaml-subset"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jesse Hoobergs <jhoobergs@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "A subset of yaml used in rumbas"
