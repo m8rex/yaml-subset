@@ -685,6 +685,17 @@ other: # check
     }
 
     #[test]
+    fn block_delimiters_in_text() {
+        let inp = r#"---
+content: When you press <em>Submit part</em>.
+abs: An absolute value is written as |x|
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
     fn elab() {
         let inp = r#"---
 # test

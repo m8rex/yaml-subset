@@ -9,12 +9,16 @@ number = @{
     ~ ("." ~ ASCII_DIGIT*)?
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
+disallowed_unquoted_inline_string_start_elements = { "," | "[" | "]" | "{" | "}" | ": " | "\"" | "#" | NEWLINE }
 disallowed_unquoted_inline_string_elements = { "," | "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
 unquoted_inline_string_elements = { !(disallowed_unquoted_inline_string_elements) ~ ANY } 
-unquoted_inline_string = @{ unquoted_inline_string_elements+ }
-disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
+unquoted_inline_string_start_elements = { !(disallowed_unquoted_inline_string_start_elements) ~ ANY } 
+unquoted_inline_string = @{ unquoted_inline_string_start_elements ~ unquoted_inline_string_elements* }
+disallowed_unquoted_string_start_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
+disallowed_unquoted_string_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "#" |  NEWLINE }
 unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
-unquoted_string = @{ unquoted_string_elements+ }
+unquoted_string_start_elements = { !(disallowed_unquoted_string_start_elements) ~ ANY } 
+unquoted_string = @{ unquoted_string_start_elements ~ unquoted_string_elements* }
 string_value = @{ (("\\" ~ ANY) | (!(PEEK) ~ ANY))* }
 quoted_string = { PUSH("\"") ~ string_value ~ POP ~ SPACE_SEPARATOR* }
 string = { unquoted_string | quoted_string }

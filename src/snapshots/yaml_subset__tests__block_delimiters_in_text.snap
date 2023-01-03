@@ -1,0 +1,38 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "content",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: UnquotedString(
+                                        "When you press <em>Submit part</em>.",
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "abs",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: UnquotedString(
+                                        "An absolute value is written as |x|",
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

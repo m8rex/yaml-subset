@@ -1,0 +1,7 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+content: When you press <em>Submit part</em>.
+abs: An absolute value is written as |x|
