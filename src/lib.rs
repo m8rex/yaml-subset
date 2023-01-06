@@ -87,10 +87,38 @@ mod path {
     impl YamlPath {
         pub fn insert(&mut self, p: YamlPath) {
             match self {
+                YamlPath::Key(_, Some(ref mut o)) => o.insert(p),
+                YamlPath::AllIndexes(Some(ref mut o)) => o.insert(p),
+                YamlPath::Indexes(_, Some(ref mut o)) => o.insert(p),
                 YamlPath::Key(_, ref mut o) => *o = Some(Box::new(p)),
                 YamlPath::AllIndexes(ref mut o) => *o = Some(Box::new(p)),
                 YamlPath::Indexes(_, ref mut o) => *o = Some(Box::new(p)),
             }
+        }
+    }
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        #[test]
+        fn parse() {
+            assert_eq!("item".parse(), Ok(YamlPath::Key("item".to_string(), None)));
+            assert_eq!(
+                "item.item2".parse(),
+                Ok(YamlPath::Key(
+                    "item".to_string(),
+                    Some(Box::new(YamlPath::Key("item2".to_string(), None)))
+                ))
+            );
+            assert_eq!(
+                "item.item2.item3".parse(),
+                Ok(YamlPath::Key(
+                    "item".to_string(),
+                    Some(Box::new(YamlPath::Key(
+                        "item2".to_string(),
+                        Some(Box::new(YamlPath::Key("item3".to_string(), None)))
+                    )))
+                ))
+            );
         }
     }
 }
@@ -107,9 +135,12 @@ pub enum HashData {
 }
 
 impl YamlInsert for HashData {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
         match self {
-            HashData::Element(e) => e.insert_into_hash(path, h, overwrite),
+            HashData::Element(e) => e.edit_hash_structure(path, f),
             _ => 0,
         }
     }
@@ -131,14 +162,16 @@ pub struct HashElement {
 }
 
 impl YamlInsert for HashElement {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
-        self.value.insert_into_hash(path, h, overwrite)
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
+        self.value.edit_hash_structure(path, f)
     }
     fn for_hash<F>(&mut self, path: &YamlPath, f: &F) -> usize
     where
         F: Fn(&mut HashElement) -> usize,
     {
-        println!("he {:?} {:?}", path, self);
         match path {
             YamlPath::Key(key, None) => {
                 if key == &self.key {
@@ -161,9 +194,12 @@ pub enum ArrayData {
 }
 
 impl YamlInsert for ArrayData {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
         match self {
-            ArrayData::Element(a) => a.insert_into_hash(path, h, overwrite),
+            ArrayData::Element(a) => a.edit_hash_structure(path, f),
             _ => 0,
         }
     }
@@ -201,10 +237,9 @@ pub trait YamlInsert {
     fn for_hash<F>(&mut self, path: &YamlPath, f: &F) -> usize
     where
         F: Fn(&mut HashElement) -> usize;
-    /// Insert AliasedYaml into a hash
-    /// Returns the amount of insertions.
-    /// Can be more than 1 when using indexes or all array elements etc
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize;
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize;
 }
 
 impl Yaml {
@@ -228,7 +263,7 @@ impl YamlInsert for Yaml {
         F: Fn(&mut HashElement) -> usize,
     {
         match path {
-            YamlPath::Key(k, other_path_opt) => {
+            YamlPath::Key(k, _) => {
                 let key_exists = self.key_index(&k);
                 match self {
                     Yaml::Hash(data) => {
@@ -293,7 +328,11 @@ impl YamlInsert for Yaml {
             YamlPath::Indexes(_, None) | YamlPath::AllIndexes(None) => 0,
         }
     }
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
         match path {
             YamlPath::Key(k, other_path_opt) => {
                 let key_exists = self.key_index(&k);
@@ -301,28 +340,12 @@ impl YamlInsert for Yaml {
                     Yaml::Hash(data) => {
                         if let Some(other_path) = other_path_opt {
                             if let Some(index) = key_exists {
-                                data[index].insert_into_hash(&*other_path, h, overwrite)
+                                data[index].edit_hash_structure(&*other_path, f)
                             } else {
                                 0
                             }
                         } else {
-                            let value = HashData::Element(HashElement {
-                                key: k.to_owned(),
-                                value: h.to_owned(),
-                            });
-                            if key_exists.is_none() {
-                                data.push(value);
-                                1
-                            } else if let Some(index) = key_exists {
-                                if overwrite {
-                                    data[index] = value;
-                                    1
-                                } else {
-                                    0
-                                }
-                            } else {
-                                0
-                            }
+                            f(data, k.clone(), key_exists)
                         }
                     }
                     _ => 0,
@@ -334,7 +357,7 @@ impl YamlInsert for Yaml {
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += element.insert_into_hash(&*other_path, h, overwrite)
+                            count += element.edit_hash_structure(&*other_path, f)
                         }
                     }
                     count
@@ -348,7 +371,7 @@ impl YamlInsert for Yaml {
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += (*element).insert_into_hash(&*other_path, h, overwrite)
+                            count += (*element).edit_hash_structure(&*other_path, f)
                         }
                     }
                     count
@@ -359,7 +382,7 @@ impl YamlInsert for Yaml {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        count += element.insert_into_hash(&*other_path, h, overwrite)
+                        count += element.edit_hash_structure(&*other_path, f)
                     }
                     count
                 }
@@ -368,7 +391,7 @@ impl YamlInsert for Yaml {
                     for element in elements.iter_mut() {
                         match element {
                             ArrayData::Element(element) => {
-                                count += element.insert_into_hash(&*other_path, h, overwrite)
+                                count += element.edit_hash_structure(&*other_path, f)
                             }
                             _ => (),
                         }
@@ -389,8 +412,11 @@ pub struct AliasedYaml {
 }
 
 impl YamlInsert for AliasedYaml {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
-        self.value.insert_into_hash(path, h, overwrite)
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
+        self.value.edit_hash_structure(path, f)
     }
     fn for_hash<F>(&mut self, path: &YamlPath, f: &F) -> usize
     where
@@ -407,9 +433,12 @@ pub enum DocumentData {
 }
 
 impl YamlInsert for DocumentData {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
         match self {
-            DocumentData::Yaml(y) => y.insert_into_hash(path, h, overwrite),
+            DocumentData::Yaml(y) => y.edit_hash_structure(path, f),
             _ => 0,
         }
     }
@@ -430,10 +459,13 @@ pub struct Document {
 }
 
 impl YamlInsert for Document {
-    fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+    fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
+    where
+        F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
+    {
         let mut count = 0;
         for item in self.items.iter_mut() {
-            count += item.insert_into_hash(path, h, overwrite);
+            count += item.edit_hash_structure(path, f);
         }
         count
     }
@@ -450,6 +482,42 @@ impl YamlInsert for Document {
 }
 
 impl Document {
+    /// Insert AliasedYaml into a hash
+    /// Returns the amount of insertions.
+    /// Can be more than 1 when using indexes or all array elements etc
+    pub fn insert_into_hash(&mut self, path: &YamlPath, h: &AliasedYaml, overwrite: bool) -> usize {
+        let f = |data: &mut Vec<HashData>, key: String, key_index: Option<usize>| {
+            let value = HashData::Element(HashElement {
+                key,
+                value: h.to_owned(),
+            });
+            if key_index.is_none() {
+                data.push(value);
+                1
+            } else if let Some(index) = key_index {
+                if overwrite {
+                    data[index] = value;
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        };
+        self.edit_hash_structure(path, &f)
+    }
+    pub fn remove_from_hash(&mut self, path: &YamlPath) -> usize {
+        let f = |data: &mut Vec<HashData>, _key: String, key_index: Option<usize>| {
+            if let Some(index) = key_index {
+                data.remove(index);
+                1
+            } else {
+                0
+            }
+        };
+        self.edit_hash_structure(path, &f)
+    }
     pub fn rename_field(&mut self, path: &YamlPath, new_name: String) -> usize {
         let f = |e: &mut HashElement| {
             e.key = new_name.clone();
@@ -1109,6 +1177,50 @@ s: &key test, 5, hi
 item:
  key: 
    subkey: value
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn remove_from_hash() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: value
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item".parse().unwrap();
+        assert_eq!(1, parsed.remove_from_hash(&path));
+
+        let out = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn remove_from_hash_deeper() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key:
+  item: 5
+  item2: 6
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item.key.item".parse().unwrap();
+        assert_eq!(1, parsed.remove_from_hash(&path));
+        let out = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+  key:
+    item2: 6
 "#;
 
         let parsed_out = parse_yaml_file(out).unwrap();
