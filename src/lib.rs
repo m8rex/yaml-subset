@@ -449,6 +449,31 @@ impl YamlInsert for Document {
     }
 }
 
+impl Document {
+    pub fn rename_field(&mut self, path: &YamlPath, new_name: String) -> usize {
+        let f = |e: &mut HashElement| {
+            e.key = new_name.clone();
+            1
+        };
+        self.for_hash(&path, &f)
+    }
+    pub fn to_object(&mut self, path: &YamlPath, object_key: String) -> usize {
+        let f = |e: &mut HashElement| {
+            let val = e.value.clone();
+            let new = AliasedYaml {
+                alias: None,
+                value: Yaml::Hash(vec![HashData::Element(HashElement {
+                    key: object_key.clone(),
+                    value: val,
+                })]),
+            };
+            e.value = new;
+            1
+        };
+        self.for_hash(&path, &f)
+    }
+}
+
 fn indent(amount: usize) -> String {
     (0..amount).map(|_| " ").collect::<Vec<_>>().join("")
 }
@@ -1042,8 +1067,9 @@ item:
         let parsed_out = parse_yaml_file(out).unwrap();
         assert_eq!(parsed_out, parsed);
     }
+
     #[test]
-    fn for_hash() {
+    fn rename_field() {
         let inp = r#"---
 inline_array: [test, 5, hi]
 s: &key test, 5, hi
@@ -1052,17 +1078,37 @@ item:
 "#;
         let mut parsed = parse_yaml_file(inp).unwrap();
         let path: YamlPath = "item.key".parse().unwrap();
-        let f = |e: &mut HashElement| {
-            e.key = "newkey".to_string();
-            1
-        };
-        assert_eq!(1, parsed.for_hash(&path, &f));
+        assert_eq!(1, parsed.rename_field(&path, "newkey".to_string()));
 
         let out = r#"---
 inline_array: [test, 5, hi]
 s: &key test, 5, hi
 item:
  newkey: value
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+
+    #[test]
+    fn to_object() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: value
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item.key".parse().unwrap();
+        assert_eq!(1, parsed.to_object(&path, "subkey".to_string()));
+
+        let out = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: 
+   subkey: value
 "#;
 
         let parsed_out = parse_yaml_file(out).unwrap();
