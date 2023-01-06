@@ -3,6 +3,7 @@ extern crate pest;
 extern crate pest_derive;
 
 pub use crate::path::YamlPath;
+use path::Condition;
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use std::fmt::Write;
@@ -22,9 +23,26 @@ mod path {
         fn EOI(_input: Node) -> PathResult<()> {
             Ok(())
         }
-        fn key(input: Node) -> PathResult<YamlPath> {
-            Ok(YamlPath::Key(input.as_str().to_string(), None))
+        fn pure_key(input: Node) -> PathResult<String> {
+            Ok(input.as_str().to_string())
         }
+        fn field(input: Node) -> PathResult<String> {
+            Ok(input.as_str().to_string())
+        }
+        fn value(input: Node) -> PathResult<String> {
+            Ok(input.as_str().to_string())
+        }
+        fn condition(input: Node) -> PathResult<Condition> {
+            Ok(match_nodes!(input.into_children();
+                [field(f), value(v)] => Condition { field: f, value: v }
+            ))
+        }
+        fn key(input: Node) -> PathResult<YamlPath> {
+            Ok(match_nodes!(input.into_children();
+                [pure_key(key), condition(cs)..] => YamlPath::Key(key, cs.collect(), None)
+            ))
+        }
+
         fn index_number(input: Node) -> PathResult<YamlPath> {
             Ok(YamlPath::Indexes(
                 vec![input.as_str().parse().unwrap()],
@@ -70,8 +88,14 @@ mod path {
     }
 
     #[derive(Debug, Clone, PartialEq)]
+    pub struct Condition {
+        pub field: String,
+        pub value: String,
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
     pub enum YamlPath {
-        Key(String, Option<Box<YamlPath>>),
+        Key(String, Vec<Condition>, Option<Box<YamlPath>>),
         AllIndexes(Option<Box<YamlPath>>),
         Indexes(Vec<usize>, Option<Box<YamlPath>>),
     }
@@ -87,10 +111,10 @@ mod path {
     impl YamlPath {
         pub fn insert(&mut self, p: YamlPath) {
             match self {
-                YamlPath::Key(_, Some(ref mut o)) => o.insert(p),
+                YamlPath::Key(_, _, Some(ref mut o)) => o.insert(p),
                 YamlPath::AllIndexes(Some(ref mut o)) => o.insert(p),
                 YamlPath::Indexes(_, Some(ref mut o)) => o.insert(p),
-                YamlPath::Key(_, ref mut o) => *o = Some(Box::new(p)),
+                YamlPath::Key(_, _, ref mut o) => *o = Some(Box::new(p)),
                 YamlPath::AllIndexes(ref mut o) => *o = Some(Box::new(p)),
                 YamlPath::Indexes(_, ref mut o) => *o = Some(Box::new(p)),
             }
@@ -101,21 +125,78 @@ mod path {
         use super::*;
         #[test]
         fn parse() {
-            assert_eq!("item".parse(), Ok(YamlPath::Key("item".to_string(), None)));
+            assert_eq!(
+                "item".parse(),
+                Ok(YamlPath::Key("item".to_string(), Vec::new(), None))
+            );
             assert_eq!(
                 "item.item2".parse(),
                 Ok(YamlPath::Key(
                     "item".to_string(),
-                    Some(Box::new(YamlPath::Key("item2".to_string(), None)))
+                    Vec::new(),
+                    Some(Box::new(YamlPath::Key(
+                        "item2".to_string(),
+                        Vec::new(),
+                        None
+                    )))
                 ))
             );
             assert_eq!(
                 "item.item2.item3".parse(),
                 Ok(YamlPath::Key(
                     "item".to_string(),
+                    Vec::new(),
                     Some(Box::new(YamlPath::Key(
                         "item2".to_string(),
-                        Some(Box::new(YamlPath::Key("item3".to_string(), None)))
+                        Vec::new(),
+                        Some(Box::new(YamlPath::Key(
+                            "item3".to_string(),
+                            Vec::new(),
+                            None
+                        )))
+                    )))
+                ))
+            );
+        }
+
+        #[test]
+        fn parse_with_conditions() {
+            assert_eq!(
+                r#"item|field=test.item2"#.parse(),
+                Ok(YamlPath::Key(
+                    "item".to_string(),
+                    vec![Condition {
+                        field: "field".to_string(),
+                        value: "test".to_string()
+                    }],
+                    Some(Box::new(YamlPath::Key(
+                        "item2".to_string(),
+                        Vec::new(),
+                        None
+                    )))
+                ))
+            );
+            assert_eq!(
+                r#"item|field=test|other=something.item2|yeah=oh"#.parse(),
+                Ok(YamlPath::Key(
+                    "item".to_string(),
+                    vec![
+                        Condition {
+                            field: "field".to_string(),
+                            value: "test".to_string()
+                        },
+                        Condition {
+                            field: "other".to_string(),
+                            value: "something".to_string()
+                        }
+                    ],
+                    Some(Box::new(YamlPath::Key(
+                        "item2".to_string(),
+                        vec![Condition {
+                            field: "yeah".to_string(),
+                            value: "oh".to_string()
+                        }],
+                        None
                     )))
                 ))
             );
@@ -173,14 +254,14 @@ impl YamlInsert for HashElement {
         F: Fn(&mut HashElement) -> usize,
     {
         match path {
-            YamlPath::Key(key, None) => {
+            YamlPath::Key(key, _conditions, None) => {
                 if key == &self.key {
                     f(self)
                 } else {
                     0
                 }
             }
-            YamlPath::Key(_key, Some(other)) => self.value.for_hash(&*other, f),
+            YamlPath::Key(_key, _conditions, Some(other)) => self.value.for_hash(&*other, f),
             _ => 0,
         }
     }
@@ -242,6 +323,22 @@ pub trait YamlInsert {
         F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize;
 }
 
+pub trait YamlTypes {
+    fn as_string(&self) -> Option<String>;
+}
+
+impl YamlTypes for Yaml {
+    fn as_string(&self) -> Option<String> {
+        match self {
+            Yaml::QuotedString(s) | Yaml::UnquotedString(s) => Some(s.clone()),
+            Yaml::FoldedString(qs) => Some(parse_folded(qs.iter().map(|q| &q[..]).collect())),
+            Yaml::LiteralString(qs) => Some(parse_literal(qs.iter().map(|q| &q[..]).collect())),
+            // TODO: anchor?
+            _ => None,
+        }
+    }
+}
+
 impl Yaml {
     fn key_index(&self, key: &String) -> Option<usize> {
         match self {
@@ -256,6 +353,38 @@ impl Yaml {
             _ => None,
         }
     }
+    fn key_value(&self, key: &String) -> Option<&AliasedYaml> {
+        match self {
+            Yaml::Hash(data) => data.iter().enumerate().find_map(|(_, v)| match v {
+                HashData::Element(e) => {
+                    if &e.key == key {
+                        Some(&e.value)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }),
+            _ => None,
+        }
+    }
+    fn fits_conditions(&self, conditions: &Vec<Condition>) -> bool {
+        conditions
+            .iter()
+            .find(|c| {
+                let index_opt = self.key_value(&c.field);
+                if let Some(yaml) = index_opt {
+                    if let Some(s) = yaml.as_string() {
+                        s != c.value // invalid, not equal to filter
+                    } else {
+                        true // invalid, field is not a string
+                    }
+                } else {
+                    true // invalid, field not found
+                }
+            })
+            .is_none()
+    }
 }
 impl YamlInsert for Yaml {
     fn for_hash<F>(&mut self, path: &YamlPath, f: &F) -> usize
@@ -263,7 +392,10 @@ impl YamlInsert for Yaml {
         F: Fn(&mut HashElement) -> usize,
     {
         match path {
-            YamlPath::Key(k, _) => {
+            YamlPath::Key(k, conditions, _) => {
+                if !self.fits_conditions(conditions) {
+                    return 0;
+                }
                 let key_exists = self.key_index(&k);
                 match self {
                     Yaml::Hash(data) => {
@@ -334,7 +466,10 @@ impl YamlInsert for Yaml {
         F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize,
     {
         match path {
-            YamlPath::Key(k, other_path_opt) => {
+            YamlPath::Key(k, conditions, other_path_opt) => {
+                if !self.fits_conditions(conditions) {
+                    return 0;
+                }
                 let key_exists = self.key_index(&k);
                 match self {
                     Yaml::Hash(data) => {
@@ -409,6 +544,12 @@ impl YamlInsert for Yaml {
 pub struct AliasedYaml {
     pub alias: Option<String>,
     pub value: Yaml,
+}
+
+impl YamlTypes for AliasedYaml {
+    fn as_string(&self) -> Option<String> {
+        self.value.as_string()
+    }
 }
 
 impl YamlInsert for AliasedYaml {
@@ -1183,6 +1324,34 @@ item:
         assert_eq!(parsed_out, parsed);
     }
     #[test]
+    fn to_object_with_condition() {
+        let inp = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: value
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item.key|key=value".parse().unwrap();
+        assert_eq!(1, parsed.to_object(&path, "subkey".to_string()));
+
+        let out = r#"---
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key: 
+   subkey: value
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item.key|key=other".parse().unwrap();
+        assert_eq!(0, parsed.to_object(&path, "subkey".to_string()));
+        assert_eq!(parse_yaml_file(inp).unwrap(), parsed);
+    }
+    #[test]
     fn remove_from_hash() {
         let inp = r#"---
 inline_array: [test, 5, hi]
@@ -1225,5 +1394,36 @@ item:
 
         let parsed_out = parse_yaml_file(out).unwrap();
         assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn remove_from_hash_deeper_with_condition() {
+        let inp = r#"---
+type: test
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+ key:
+  item: 5
+  item2: 6
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item|type=test.key.item".parse().unwrap();
+        assert_eq!(1, parsed.remove_from_hash(&path));
+        let out = r#"---
+type: test
+inline_array: [test, 5, hi]
+s: &key test, 5, hi
+item:
+  key:
+    item2: 6
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "item|type=other.key.item".parse().unwrap();
+        assert_eq!(0, parsed.remove_from_hash(&path));
+        assert_eq!(parse_yaml_file(inp).unwrap(), parsed);
     }
 }

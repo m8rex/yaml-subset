@@ -1,7 +1,12 @@
 WHITESPACE = { " " }
 
-key_items = _{ !("[" | "]" | ".") ~ ANY }
-key = { key_items* }
+key_items = _{ !("[" | "]" | "." | "|") ~ ANY }
+pure_key = { key_items* }
+
+field = { (!("=") ~ ANY)+ }
+value = { (!("." | "|") ~ ANY)+ }
+condition = { field ~ "=" ~ value }
+key = { pure_key ~ ( "|" ~ condition )* }
 
 index_number = { ASCII_DIGIT+ }
 index_all = { "*" }
