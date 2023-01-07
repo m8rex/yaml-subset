@@ -307,7 +307,15 @@ impl YamlInsert for ArrayData {
         R: Fn(&mut Yaml) -> usize,
     {
         match self {
-            ArrayData::Element(a) => a.for_hash(path, f, r),
+            ArrayData::Element(a) => match path {
+                YamlPath::Root(_conditions) => 0,
+                YamlPath::Key(key, conditions, None) => a.for_hash(path, f, r),
+                YamlPath::AllIndexes(Some(other)) => a.for_hash(&*other, f, r),
+                YamlPath::AllIndexes(None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
+                YamlPath::Indexes(_, Some(other)) => a.for_hash(&*other, f, r),
+                YamlPath::Indexes(_, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
+                _ => 0,
+            },
             _ => 0,
         }
     }
@@ -579,13 +587,13 @@ impl YamlInsert for Yaml {
                     _ => 0,
                 }
             }
-            YamlPath::Indexes(indexes, Some(other_path)) => match self {
+            YamlPath::Indexes(indexes, _) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += element.for_hash(&*other_path, f, r)
+                            count += element.for_hash(path, f, r)
                         }
                     }
                     count
@@ -599,36 +607,31 @@ impl YamlInsert for Yaml {
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += (*element).for_hash(&*other_path, f, r)
+                            count += (*element).for_hash(path, f, r)
                         }
                     }
                     count
                 }
                 _ => 0,
             },
-            YamlPath::AllIndexes(Some(other_path)) => match self {
+            //YamlPath::AllIndexes(Some(other_path)) => match self {
+            YamlPath::AllIndexes(_) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        count += element.for_hash(&*other_path, f, r)
+                        count += element.for_hash(path, f, r)
                     }
                     count
                 }
                 Yaml::Array(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        match element {
-                            ArrayData::Element(element) => {
-                                count += element.for_hash(&*other_path, f, r)
-                            }
-                            _ => (),
-                        }
+                        count += element.for_hash(path, f, r)
                     }
                     count
                 }
                 _ => 0,
             },
-            YamlPath::Indexes(_, None) | YamlPath::AllIndexes(None) => 0,
         }
     }
 
@@ -1643,6 +1646,61 @@ k:
     e: vale
     b: valb
     d: vald
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn move_to_subfield_list() {
+        let inp = r#"---
+k:
+  - item1: test0
+    result:
+      yes: three
+  - item1: test1
+"#;
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "k[*]".parse().unwrap();
+        assert_eq!(
+            2,
+            parsed.move_to_subfield(&path, "result".to_string(), vec!["item1".to_string(),])
+        );
+        let out = r#"---
+k:
+  - result:
+      yes: three
+      item1: test0
+  - result:
+      item1: test1
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn move_to_subfield_list_item() {
+        let inp = r#"---
+k:
+  - item1: test0
+    result:
+      yes: three
+  - item1: test1
+"#;
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "k[0]".parse().unwrap();
+        assert_eq!(
+            1,
+            parsed.move_to_subfield(&path, "result".to_string(), vec!["item1".to_string(),])
+        );
+        let out = r#"---
+k:
+  - result:
+      yes: three
+      item1: test0
+  - item1: test1
 "#;
 
         let parsed_out = parse_yaml_file(out).unwrap();
