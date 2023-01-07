@@ -1,7 +1,7 @@
 WHITESPACE = { " " }
 
 key_items = _{ !("[" | "]" | "." | "|") ~ ANY }
-pure_key = { key_items* }
+pure_key = { key_items+ }
 
 field = { (!("=") ~ ANY)+ }
 value = { (!("." | "|") ~ ANY)+ }
@@ -13,5 +13,8 @@ index_all = { "*" }
 index = _{ "[" ~ (index_number | index_all) ~ "]" }
 
 part = { ((".") ~ key) | index }
-path = { key ~ part* }  
-final_path = { path ~ EOI }
+path = { key ~ part* }
+root_key = { "" }
+root = { root_key ~ ( "|" ~ condition )* }
+final_path = { (path | root ) ~ EOI }
+
