@@ -1626,7 +1626,12 @@ k:
             parsed.move_to_subfield(
                 &path,
                 "l".to_string(),
-                vec!["e".to_string(), "b".to_string(), "d".to_string()]
+                vec![
+                    "e".to_string(),
+                    "b".to_string(),
+                    "d".to_string(),
+                    "kk".to_string()
+                ]
             )
         );
         let out = r#"---
