@@ -10,7 +10,7 @@ key = { pure_key ~ ( "|" ~ condition )* }
 
 index_number = { ASCII_DIGIT+ }
 index_all = { "*" }
-index = _{ "[" ~ (index_number | index_all) ~ "]" }
+index = _{ "[" ~ (index_number | index_all) ~ "]" ~ ( "|" ~ condition )* }
 
 part = { ((".") ~ key) | index }
 path = { key ~ part* }

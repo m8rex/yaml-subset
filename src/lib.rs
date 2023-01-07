@@ -43,19 +43,16 @@ mod path {
             ))
         }
 
-        fn index_number(input: Node) -> PathResult<YamlPath> {
-            Ok(YamlPath::Indexes(
-                vec![input.as_str().parse().unwrap()],
-                None,
-            )) // TODO: remove unwrap
+        fn index_number(input: Node) -> PathResult<Vec<usize>> {
+            Ok(vec![input.as_str().parse().unwrap()]) // TODO: remove unwrap
         }
-        fn index_all(input: Node) -> PathResult<YamlPath> {
-            Ok(YamlPath::AllIndexes(None))
+        fn index_all(input: Node) -> PathResult<()> {
+            Ok(())
         }
         fn part(input: Node) -> PathResult<YamlPath> {
             Ok(match_nodes!(input.into_children();
-                [index_all(r)] => r,
-                [index_number(r)] => r,
+                [index_all(r), condition(cs)..] => YamlPath::AllIndexes(cs.collect(), None),
+                [index_number(indexes), condition(cs)..] => YamlPath::Indexes(indexes, cs.collect(), None),
                 [key(r)] => r,
 
             ))
@@ -108,8 +105,8 @@ mod path {
     pub enum YamlPath {
         Root(Vec<Condition>),
         Key(String, Vec<Condition>, Option<Box<YamlPath>>),
-        AllIndexes(Option<Box<YamlPath>>),
-        Indexes(Vec<usize>, Option<Box<YamlPath>>),
+        AllIndexes(Vec<Condition>, Option<Box<YamlPath>>),
+        Indexes(Vec<usize>, Vec<Condition>, Option<Box<YamlPath>>),
     }
 
     impl std::str::FromStr for YamlPath {
@@ -125,11 +122,11 @@ mod path {
             match self {
                 YamlPath::Root(_) => (),
                 YamlPath::Key(_, _, Some(ref mut o)) => o.insert(p),
-                YamlPath::AllIndexes(Some(ref mut o)) => o.insert(p),
-                YamlPath::Indexes(_, Some(ref mut o)) => o.insert(p),
+                YamlPath::AllIndexes(_, Some(ref mut o)) => o.insert(p),
+                YamlPath::Indexes(_, _, Some(ref mut o)) => o.insert(p),
                 YamlPath::Key(_, _, ref mut o) => *o = Some(Box::new(p)),
-                YamlPath::AllIndexes(ref mut o) => *o = Some(Box::new(p)),
-                YamlPath::Indexes(_, ref mut o) => *o = Some(Box::new(p)),
+                YamlPath::AllIndexes(_, ref mut o) => *o = Some(Box::new(p)),
+                YamlPath::Indexes(_, _, ref mut o) => *o = Some(Box::new(p)),
             }
         }
     }
@@ -211,6 +208,33 @@ mod path {
                             value: "oh".to_string()
                         }],
                         None
+                    )))
+                ))
+            );
+            assert_eq!(
+                r#"item[*]|field=test|other=something.item2|yeah=oh"#.parse(),
+                Ok(YamlPath::Key(
+                    "item".to_string(),
+                    Vec::new(),
+                    Some(Box::new(YamlPath::AllIndexes(
+                        vec![
+                            Condition {
+                                field: "field".to_string(),
+                                value: "test".to_string()
+                            },
+                            Condition {
+                                field: "other".to_string(),
+                                value: "something".to_string()
+                            }
+                        ],
+                        Some(Box::new(YamlPath::Key(
+                            "item2".to_string(),
+                            vec![Condition {
+                                field: "yeah".to_string(),
+                                value: "oh".to_string()
+                            }],
+                            None
+                        )))
                     )))
                 ))
             );
@@ -309,11 +333,11 @@ impl YamlInsert for ArrayData {
         match self {
             ArrayData::Element(a) => match path {
                 YamlPath::Root(_conditions) => 0,
-                YamlPath::Key(key, conditions, None) => a.for_hash(path, f, r),
-                YamlPath::AllIndexes(Some(other)) => a.for_hash(&*other, f, r),
-                YamlPath::AllIndexes(None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
-                YamlPath::Indexes(_, Some(other)) => a.for_hash(&*other, f, r),
-                YamlPath::Indexes(_, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
+                YamlPath::Key(_key, _conditions, None) => a.for_hash(path, f, r),
+                YamlPath::AllIndexes(_, Some(other)) => a.for_hash(&*other, f, r),
+                YamlPath::AllIndexes(_, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
+                YamlPath::Indexes(_, _, Some(other)) => a.for_hash(&*other, f, r),
+                YamlPath::Indexes(_, _, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
                 _ => 0,
             },
             _ => 0,
@@ -324,6 +348,12 @@ impl YamlInsert for ArrayData {
 impl ArrayData {
     pub fn element(e: AliasedYaml) -> ArrayData {
         ArrayData::Element(e)
+    }
+    fn fits_conditions(&self, conditions: &Vec<Condition>) -> bool {
+        match self {
+            ArrayData::Element(e) => e.fits_conditions(conditions),
+            _ => false,
+        }
     }
 }
 
@@ -587,13 +617,15 @@ impl YamlInsert for Yaml {
                     _ => 0,
                 }
             }
-            YamlPath::Indexes(indexes, _) => match self {
+            YamlPath::Indexes(indexes, conditions, _) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += element.for_hash(path, f, r)
+                            if element.fits_conditions(conditions) {
+                                count += element.for_hash(path, f, r)
+                            }
                         }
                     }
                     count
@@ -607,7 +639,9 @@ impl YamlInsert for Yaml {
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += (*element).for_hash(path, f, r)
+                            if element.fits_conditions(conditions) {
+                                count += (*element).for_hash(path, f, r)
+                            }
                         }
                     }
                     count
@@ -615,18 +649,22 @@ impl YamlInsert for Yaml {
                 _ => 0,
             },
             //YamlPath::AllIndexes(Some(other_path)) => match self {
-            YamlPath::AllIndexes(_) => match self {
+            YamlPath::AllIndexes(conditions, _) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        count += element.for_hash(path, f, r)
+                        if element.fits_conditions(conditions) {
+                            count += element.for_hash(path, f, r)
+                        }
                     }
                     count
                 }
                 Yaml::Array(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        count += element.for_hash(path, f, r)
+                        if element.fits_conditions(conditions) {
+                            count += element.for_hash(path, f, r)
+                        }
                     }
                     count
                 }
@@ -661,13 +699,15 @@ impl YamlInsert for Yaml {
                     _ => 0,
                 }
             }
-            YamlPath::Indexes(indexes, Some(other_path)) => match self {
+            YamlPath::Indexes(indexes, conditions, Some(other_path)) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += element.edit_hash_structure(&*other_path, f)
+                            if element.fits_conditions(conditions) {
+                                count += element.edit_hash_structure(&*other_path, f)
+                            }
                         }
                     }
                     count
@@ -681,18 +721,22 @@ impl YamlInsert for Yaml {
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
-                            count += (*element).edit_hash_structure(&*other_path, f)
+                            if element.fits_conditions(conditions) {
+                                count += (*element).edit_hash_structure(&*other_path, f)
+                            }
                         }
                     }
                     count
                 }
                 _ => 0,
             },
-            YamlPath::AllIndexes(Some(other_path)) => match self {
+            YamlPath::AllIndexes(conditions, Some(other_path)) => match self {
                 Yaml::InlineArray(elements) => {
                     let mut count = 0;
                     for element in elements.iter_mut() {
-                        count += element.edit_hash_structure(&*other_path, f)
+                        if element.fits_conditions(conditions) {
+                            count += element.edit_hash_structure(&*other_path, f)
+                        }
                     }
                     count
                 }
@@ -701,7 +745,9 @@ impl YamlInsert for Yaml {
                     for element in elements.iter_mut() {
                         match element {
                             ArrayData::Element(element) => {
-                                count += element.edit_hash_structure(&*other_path, f)
+                                if element.fits_conditions(conditions) {
+                                    count += element.edit_hash_structure(&*other_path, f)
+                                }
                             }
                             _ => (),
                         }
@@ -710,7 +756,7 @@ impl YamlInsert for Yaml {
                 }
                 _ => 0,
             },
-            YamlPath::Indexes(_, None) | YamlPath::AllIndexes(None) => 0,
+            YamlPath::Indexes(_, _, None) | YamlPath::AllIndexes(_, None) => 0,
         }
     }
 }
@@ -719,6 +765,12 @@ impl YamlInsert for Yaml {
 pub struct AliasedYaml {
     pub alias: Option<String>,
     pub value: Yaml,
+}
+
+impl AliasedYaml {
+    fn fits_conditions(&self, conditions: &Vec<Condition>) -> bool {
+        self.value.fits_conditions(conditions)
+    }
 }
 
 impl YamlTypes for AliasedYaml {
@@ -1701,6 +1753,34 @@ k:
       yes: three
       item1: test0
   - item1: test1
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+    #[test]
+    fn move_to_subfield_list_filter() {
+        let inp = r#"---
+k:
+  - item1: test0
+    result:
+      yes: three
+  - item1: test1
+"#;
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "k[*]|item1=test1".parse().unwrap();
+        assert_eq!(
+            1,
+            parsed.move_to_subfield(&path, "result".to_string(), vec!["item1".to_string(),])
+        );
+        let out = r#"---
+k:
+  - item1: test0
+    result:
+      yes: three      
+  - result:
+      item1: test1
 "#;
 
         let parsed_out = parse_yaml_file(out).unwrap();
