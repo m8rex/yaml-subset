@@ -120,7 +120,7 @@ mod path {
     impl YamlPath {
         pub fn insert(&mut self, p: YamlPath) {
             match self {
-                YamlPath::Root(_) => (),
+                YamlPath::Root(_) => *self = p,
                 YamlPath::Key(_, _, Some(ref mut o)) => o.insert(p),
                 YamlPath::AllIndexes(_, Some(ref mut o)) => o.insert(p),
                 YamlPath::Indexes(_, _, Some(ref mut o)) => o.insert(p),
