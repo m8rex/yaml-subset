@@ -51,7 +51,7 @@ mod path {
         }
         fn part(input: Node) -> PathResult<YamlPath> {
             Ok(match_nodes!(input.into_children();
-                [index_all(r), condition(cs)..] => YamlPath::AllIndexes(cs.collect(), None),
+                [index_all(_), condition(cs)..] => YamlPath::AllIndexes(cs.collect(), None),
                 [index_number(indexes), condition(cs)..] => YamlPath::Indexes(indexes, cs.collect(), None),
                 [key(r)] => r,
 
