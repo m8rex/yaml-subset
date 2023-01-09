@@ -239,6 +239,29 @@ mod path {
                 ))
             );
         }
+
+        #[test]
+        fn insert() {
+            let first: YamlPath = "minimum_marks".parse().unwrap();
+            let mut new: YamlPath = "parts[*].gaps|type=gapfill[*]".parse().unwrap();
+            new.insert(first);
+            assert_eq!(
+                new,
+                "parts[*].gaps|type=gapfill[*].minimum_marks"
+                    .parse()
+                    .unwrap()
+            );
+
+            let first: YamlPath = "minimum_marks".parse().unwrap();
+            let mut new: YamlPath = "parts[*]|type=gapfill.gaps[*]".parse().unwrap();
+            new.insert(first);
+            assert_eq!(
+                new,
+                "parts[*]|type=gapfill.gaps[*].minimum_marks"
+                    .parse()
+                    .unwrap()
+            );
+        }
     }
 }
 
@@ -1463,6 +1486,59 @@ inline_array: [test, 5, hi]
 s: &key test, 5, hi
 item:
  newkey: value
+"#;
+
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
+    }
+
+    #[test]
+    fn rename_field_list_in_list() {
+        let inp = r#"---
+parts:
+  - type: gapfill
+    gaps:
+      - type: jme
+        old_name: value
+      - type: jme
+        old_name: value
+  - type: random 
+    gaps:
+      - type: jme
+        old_name: value
+      - type: jme
+        old_name: value
+  - type: gapfill
+    gaps:
+      - type: jme
+        old_name: value
+      - type: jme
+        old_name: value
+"#;
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "parts[*]|type=gapfill.gaps[*].old_name".parse().unwrap();
+        assert_eq!(4, parsed.rename_field(&path, "new_name".to_string()));
+
+        let out = r#"---
+parts:
+  - type: gapfill
+    gaps:
+      - type: jme
+        new_name: value
+      - type: jme
+        new_name: value
+  - type: random 
+    gaps:
+      - type: jme
+        old_name: value
+      - type: jme
+        old_name: value
+  - type: gapfill
+    gaps:
+      - type: jme
+        new_name: value
+      - type: jme
+        new_name: value
 "#;
 
         let parsed_out = parse_yaml_file(out).unwrap();
