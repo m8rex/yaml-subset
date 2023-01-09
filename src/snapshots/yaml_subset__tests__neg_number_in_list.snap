@@ -1,0 +1,55 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "vset_range",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: UnquotedString(
+                                                        "-10",
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: UnquotedString(
+                                                        "10",
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "vset_range_points",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: UnquotedString(
+                                        "20",
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

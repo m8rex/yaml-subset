@@ -1880,4 +1880,17 @@ k:
         let parsed_out = parse_yaml_file(out).unwrap();
         assert_eq!(parsed_out, parsed);
     }
+    #[test]
+    fn neg_number_in_list() {
+        let inp = r#"---
+vset_range:
+  - -10
+  - 10
+vset_range_points: 20
+"#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
 }

@@ -35,7 +35,7 @@ inline_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | str
 inline_array_value = _{ (alias ~ spaces)? ~ (anchor | inline_array | inline_hash | inline_array_string ) }
 
 inline_array = _{ "[" ~ (spaces ~ inline_array_value ~ (spaces ~ "," ~ spaces ~ inline_array_value)*)? ~ spaces ~ "]" }
-block_array_element = { "-" ~ SPACE_SEPARATOR* ~ block_array_yaml_value }
+block_array_element = { "-" ~ SPACE_SEPARATOR+ ~ block_array_yaml_value }
 block_array = _{ commentnl* ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (blank ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
 array = { inline_array | block_array }
 alternative_array = { block_array_element ~ comment? ~ blanknl ~ PUSH(SPACE_SEPARATOR*) ~ block_array_element ~ comment? ~ SPACE_SEPARATOR* ~ (blanknl ~ commentnl* ~ PEEK ~ block_array_element ~ comment?)* ~ DROP ~ commentnl* }
