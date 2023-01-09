@@ -25,7 +25,7 @@ string = { unquoted_string | quoted_string }
 inline_array_string = { unquoted_inline_string | quoted_string }
 
 block_string = @{ (!NEWLINE ~ ANY)+ | "" }
-string_multiline_content = _{ blanknl ~ (PEEK_ALL ~ PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK_ALL ~ block_string)* ~ DROP }
+string_multiline_content = _{ blanknl ~ (PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK ~ block_string)* ~ DROP }
 string_multiline_folded = { ">" ~ string_multiline_content }
 string_multiline_literal = { "|"  ~ string_multiline_content }
 

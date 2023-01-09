@@ -1,0 +1,13 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+parts:
+  - type: gapfill
+    marks: 0
+    prompt:
+      content: test
+      other: |
+        8
+        10

@@ -1,0 +1,96 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "parts",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: Hash(
+                                                        [
+                                                            Element(
+                                                                HashElement {
+                                                                    key: "type",
+                                                                    value: AliasedYaml {
+                                                                        alias: None,
+                                                                        value: UnquotedString(
+                                                                            "gapfill",
+                                                                        ),
+                                                                    },
+                                                                },
+                                                            ),
+                                                            Element(
+                                                                HashElement {
+                                                                    key: "marks",
+                                                                    value: AliasedYaml {
+                                                                        alias: None,
+                                                                        value: UnquotedString(
+                                                                            "0",
+                                                                        ),
+                                                                    },
+                                                                },
+                                                            ),
+                                                            Element(
+                                                                HashElement {
+                                                                    key: "prompt",
+                                                                    value: AliasedYaml {
+                                                                        alias: None,
+                                                                        value: Hash(
+                                                                            [
+                                                                                Element(
+                                                                                    HashElement {
+                                                                                        key: "content",
+                                                                                        value: AliasedYaml {
+                                                                                            alias: None,
+                                                                                            value: UnquotedString(
+                                                                                                "test",
+                                                                                            ),
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                                Element(
+                                                                                    HashElement {
+                                                                                        key: "other",
+                                                                                        value: AliasedYaml {
+                                                                                            alias: None,
+                                                                                            value: LiteralString(
+                                                                                                [
+                                                                                                    "8",
+                                                                                                    "10",
+                                                                                                ],
+                                                                                            ),
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

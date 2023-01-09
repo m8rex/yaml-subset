@@ -1384,6 +1384,24 @@ plus another line at the end.
     }
 
     #[test]
+    fn block_scalars_deeper() {
+        let inp = r#"---
+parts:
+  - 
+    type: gapfill
+    marks: 0
+    prompt:
+      content: test
+      other: |
+        8
+        10"#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
     fn commas_in_unquoted_string() {
         let inp = r#"---
 inline_array: [test, 5, hi]
