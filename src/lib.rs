@@ -6,6 +6,7 @@ pub use crate::path::YamlPath;
 use path::Condition;
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
+use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::ops::Fn;
 
@@ -503,6 +504,122 @@ pub trait YamlInsert {
                         hash.remove_from_hash(&key.parse().unwrap());
                     }
                     res
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        };
+        let f = |e: &mut HashElement| {
+            let hash = &mut e.value.value;
+            r(hash)
+        };
+
+        self.for_hash(&path, &f, &r)
+    }
+    fn move_to_map_with_field_as_key(
+        &mut self,
+        path: &YamlPath,
+        old_map_name: String,
+        selector: String,
+        new_map_name: String,
+        keeps: Vec<String>,
+    ) -> usize {
+        let r = |hash: &mut Yaml| match hash {
+            Yaml::Hash(_data) => {
+                if let Some(result) = hash.key_value_owned(&old_map_name) {
+                    if let Yaml::Hash(hash_data) = result.value {
+                        let mut new_hashes: BTreeMap<String, Vec<HashData>> = BTreeMap::new();
+                        let mut old_hashes = Vec::new();
+                        let mut comments = Vec::new();
+                        let mut last_added_to = None;
+                        for mut hash_data in hash_data {
+                            match hash_data {
+                                HashData::Element(ref hash_element) => {
+                                    if let Some(key) =
+                                        hash_element.value.value.key_value_owned(&selector)
+                                    {
+                                        if let Some(s) = key.as_string() {
+                                            if keeps.contains(&s) {
+                                                hash_data
+                                                    .remove_from_hash(&selector.parse().unwrap());
+                                                old_hashes.extend(comments.clone());
+                                                comments.clear();
+                                                old_hashes.push(hash_data);
+                                                last_added_to = None
+                                            } else {
+                                                let mut value = hash_element.value.clone();
+                                                value.remove_from_hash(&selector.parse().unwrap());
+
+                                                let new_hash_element =
+                                                    HashData::Element(HashElement {
+                                                        key: hash_element.key.clone(),
+                                                        value,
+                                                    });
+
+                                                if new_hashes.contains_key(&s) {
+                                                    let i = new_hashes.get_mut(&s).unwrap();
+                                                    i.extend(comments.clone());
+                                                    i.push(new_hash_element);
+                                                    comments.clear();
+                                                } else {
+                                                    let mut items = comments.clone();
+                                                    items.push(new_hash_element);
+                                                    new_hashes.insert(s.clone(), items);
+                                                    comments.clear();
+                                                }
+                                                last_added_to = Some(s);
+                                            }
+                                        } else {
+                                            old_hashes.extend(comments.clone());
+                                            comments.clear();
+                                            old_hashes.push(hash_data);
+                                            last_added_to = None
+                                        }
+                                    } else {
+                                        old_hashes.extend(comments.clone());
+                                        comments.clear();
+                                        old_hashes.push(hash_data);
+                                        last_added_to = None
+                                    }
+                                }
+                                HashData::Comment(_) | HashData::InlineComment(_) => {
+                                    comments.push(hash_data)
+                                }
+                            }
+                        }
+                        if let Some(s) = last_added_to {
+                            new_hashes.get_mut(&s).unwrap().extend(comments);
+                        } else {
+                            old_hashes.extend(comments);
+                        }
+                        let new = AliasedYaml {
+                            alias: result.alias.clone(),
+                            value: Yaml::Hash(
+                                new_hashes
+                                    .into_iter()
+                                    .map(|(key, value)| {
+                                        HashData::Element(HashElement {
+                                            key: key.clone(),
+                                            value: AliasedYaml {
+                                                alias: None,
+                                                value: Yaml::Hash(value),
+                                            },
+                                        })
+                                    })
+                                    .collect(),
+                            ),
+                        };
+                        hash.insert_into_hash(&new_map_name.parse().unwrap(), &new, false);
+                        let old = AliasedYaml {
+                            alias: result.alias.clone(),
+                            value: Yaml::Hash(old_hashes),
+                        };
+                        hash.insert_into_hash(&old_map_name.parse().unwrap(), &old, true);
+                        1
+                    } else {
+                        0
+                    }
                 } else {
                     0
                 }
@@ -1892,5 +2009,67 @@ vset_range_points: 20
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
         insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+    #[test]
+    fn move_to_map_with_field_as_key() {
+        let inp = r#"---
+k:
+  - item1: 
+        variables:
+            # this specifies the test
+            test: value
+            ke:
+              # comments
+              definition: result
+              group: keep
+            # this one will be moved
+            other:
+              definition: result
+              group: different
+            k: value
+            main:
+              definiton: field
+              group: other
+            other2:
+              definition: result2
+              group: different
+"#;
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "k[*].item1".parse().unwrap();
+        assert_eq!(
+            1,
+            parsed.move_to_map_with_field_as_key(
+                &path,
+                "variables".to_string(),
+                "group".to_string(),
+                "grouped_variables".to_string(),
+                vec!["keep".to_string()]
+            )
+        );
+        let out = r#"---
+k:
+- item1: 
+        variables:
+            # this specifies the test
+            test: value
+            ke:
+              # comments
+              definition: result
+            k: value
+        grouped_variables:
+            different:
+                # this one will be moved
+                other:
+                    definition: result
+                other2:
+                    definition: result2
+            other:
+                main:
+                    definiton: field
+"#;
+        println!("{}", parsed.format().unwrap());
+        let parsed_out = parse_yaml_file(out).unwrap();
+        assert_eq!(parsed_out, parsed);
     }
 }
