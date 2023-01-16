@@ -540,7 +540,7 @@ pub trait YamlInsert {
                                         hash_element.value.value.key_value_owned(&selector)
                                     {
                                         if let Some(s) = key.as_string() {
-                                            if keeps.contains(&s) {
+                                            if keeps.contains(&s) || s.is_empty() {
                                                 hash_data
                                                     .remove_from_hash(&selector.parse().unwrap());
                                                 old_hashes.extend(comments.clone());
@@ -1140,8 +1140,9 @@ impl Yaml {
 }
 
 use pest::error::Error;
+pub type DocumentResult = Result<Document, Error<Rule>>;
 
-pub fn parse_yaml_file(file: &str) -> Result<Document, Error<Rule>> {
+pub fn parse_yaml_file(file: &str) -> DocumentResult {
     let pairs = YamlParser::parse(Rule::yaml, file)?
         .next()
         .unwrap()
@@ -2030,7 +2031,9 @@ k:
             other:
               definition: result
               group: different
-            k: value
+            k: 
+              definition: value
+              group: ""
             main:
               definiton: field
               group: other
@@ -2065,7 +2068,8 @@ k:
             ke:
               # comments
               definition: result
-            k: value
+            k: 
+              definition: value
         grouped_variables:
             different:
                 # this one will be moved
