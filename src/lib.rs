@@ -593,30 +593,34 @@ pub trait YamlInsert {
                         } else {
                             old_hashes.extend(comments);
                         }
-                        let new = AliasedYaml {
-                            alias: result.alias.clone(),
-                            value: Yaml::Hash(
-                                new_hashes
-                                    .into_iter()
-                                    .map(|(key, value)| {
-                                        HashData::Element(HashElement {
-                                            key: key.clone(),
-                                            value: AliasedYaml {
-                                                alias: None,
-                                                value: Yaml::Hash(value),
-                                            },
+                        if !new_hashes.is_empty() {
+                            let new = AliasedYaml {
+                                alias: result.alias.clone(),
+                                value: Yaml::Hash(
+                                    new_hashes
+                                        .into_iter()
+                                        .map(|(key, value)| {
+                                            HashData::Element(HashElement {
+                                                key: key.clone(),
+                                                value: AliasedYaml {
+                                                    alias: None,
+                                                    value: Yaml::Hash(value),
+                                                },
+                                            })
                                         })
-                                    })
-                                    .collect(),
-                            ),
-                        };
-                        hash.insert_into_hash(&new_map_name.parse().unwrap(), &new, false);
-                        let old = AliasedYaml {
-                            alias: result.alias.clone(),
-                            value: Yaml::Hash(old_hashes),
-                        };
-                        hash.insert_into_hash(&old_map_name.parse().unwrap(), &old, true);
-                        1
+                                        .collect(),
+                                ),
+                            };
+                            hash.insert_into_hash(&new_map_name.parse().unwrap(), &new, false);
+                            let old = AliasedYaml {
+                                alias: result.alias.clone(),
+                                value: Yaml::Hash(old_hashes),
+                            };
+                            hash.insert_into_hash(&old_map_name.parse().unwrap(), &old, true);
+                            1
+                        } else {
+                            0
+                        }
                     } else {
                         0
                     }
@@ -2014,7 +2018,7 @@ vset_range_points: 20
     fn move_to_map_with_field_as_key() {
         let inp = r#"---
 k:
-  - item1: 
+    - item1: 
         variables:
             # this specifies the test
             test: value
@@ -2033,6 +2037,11 @@ k:
             other2:
               definition: result2
               group: different
+    - item2:
+        variables:
+            # this specifies the test
+            test: value
+        grouped_variables: anything
 "#;
 
         let mut parsed = parse_yaml_file(inp).unwrap();
@@ -2067,6 +2076,11 @@ k:
             other:
                 main:
                     definiton: field
+- item2:
+    variables:
+        # this specifies the test
+        test: value
+    grouped_variables: anything
 "#;
         println!("{}", parsed.format().unwrap());
         let parsed_out = parse_yaml_file(out).unwrap();
