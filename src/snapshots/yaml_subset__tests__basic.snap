@@ -102,11 +102,74 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: QuotedString(
-                                                        "e",
+                                                    value: DoubleQuotedString(
+                                                        [
+                                                            String(
+                                                                "e",
+                                                            ),
+                                                        ],
                                                     ),
                                                 },
                                             ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "double_quoted",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: DoubleQuotedString(
+                                        [
+                                            String(
+                                                "test",
+                                            ),
+                                            BlankLines(
+                                                1,
+                                            ),
+                                            String(
+                                                "now a space ",
+                                            ),
+                                            EscapedChar(
+                                                Newline,
+                                            ),
+                                            String(
+                                                " vs ",
+                                            ),
+                                            EscapedChar(
+                                                Backslash,
+                                            ),
+                                            String(
+                                                "n",
+                                            ),
+                                            RemovableNewline,
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "single_quoted",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: SingleQuotedString(
+                                        [
+                                            String(
+                                                "test escaping ",
+                                            ),
+                                            EscapedChar(
+                                                SingleQuote,
+                                            ),
+                                            BlankLines(
+                                                1,
+                                            ),
+                                            String(
+                                                "now a space \\n vs \\\\n",
+                                            ),
+                                            RemovableNewline,
                                         ],
                                     ),
                                 },

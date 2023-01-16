@@ -107,8 +107,12 @@ Ok(
                                             Element(
                                                 AliasedYaml {
                                                     alias: None,
-                                                    value: QuotedString(
-                                                        "e",
+                                                    value: DoubleQuotedString(
+                                                        [
+                                                            String(
+                                                                "e",
+                                                            ),
+                                                        ],
                                                     ),
                                                 },
                                             ),

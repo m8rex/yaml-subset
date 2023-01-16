@@ -15,4 +15,12 @@ k:
   - 5
   - 10
   - "e"
+double_quoted: "test
+
+now a space \n vs \\n
+"
+single_quoted: 'test escaping ''
+
+now a space \n vs \\n
+'
 # after

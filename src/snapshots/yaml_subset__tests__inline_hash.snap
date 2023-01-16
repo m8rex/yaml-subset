@@ -15,9 +15,7 @@ Ok(
                                     alias: Some(
                                         "test",
                                     ),
-                                    value: Hash(
-                                        [],
-                                    ),
+                                    value: EmptyInlineHash,
                                 },
                             },
                         ),
@@ -26,9 +24,7 @@ Ok(
                                 key: "item",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: Hash(
-                                        [],
-                                    ),
+                                    value: EmptyInlineHash,
                                 },
                             },
                         ),
@@ -47,9 +43,7 @@ Ok(
                                                     key: "item",
                                                     value: AliasedYaml {
                                                         alias: None,
-                                                        value: Hash(
-                                                            [],
-                                                        ),
+                                                        value: EmptyInlineHash,
                                                     },
                                                 },
                                             ),
