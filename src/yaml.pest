@@ -24,8 +24,10 @@ quoted_string = { PUSH("\"") ~ string_value ~ POP ~ SPACE_SEPARATOR* }
 string = { unquoted_string | quoted_string }
 inline_array_string = { unquoted_inline_string | quoted_string }
 
+newline_with_newline_after = { !(NEWLINE ~ (!NEWLINE ~ ANY)) ~ NEWLINE}
+blankline = { newline_with_newline_after+ }
 block_string = @{ (!NEWLINE ~ ANY)+ | "" }
-string_multiline_content = _{ blanknl ~ (PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK ~ block_string)* ~ DROP }
+string_multiline_content = _{ blanknl ~ (PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK ~ block_string ~ blankline?)* ~ DROP }
 string_multiline_folded = { ">" ~ string_multiline_content }
 string_multiline_literal = { "|"  ~ string_multiline_content }
 

@@ -1201,6 +1201,9 @@ fn parse_folded(lines: Vec<&str>) -> String {
             let is_empty = if element.is_empty() {
                 c.push_str("\n");
                 true
+            } else if element.starts_with("\n") {
+                c.push_str(element);
+                true
             } else if element.starts_with(" ") {
                 c.push_str("\n");
                 c.push_str(element);
@@ -2089,5 +2092,142 @@ k:
         println!("{}", parsed.format().unwrap());
         let parsed_out = parse_yaml_file(out).unwrap();
         assert_eq!(parsed_out, parsed);
+    }
+
+    #[test]
+    fn bug1() {
+        let inp = r#"---
+functions:
+  PlotCorrect:
+    definition: |
+      var div = Numbas.extensions.jsxgraph.makeBoard('400px','400px',{boundingBox:[-6,6,6,-6],grid:true,axis:false});
+      var board = div.board;
+      
+      // create the x-axis.
+      var xaxis = board.create('line',[[0,0],[1,0]], 
+        {lastarrow:true,name:'X',withLabel:true, label: {position: 'rt',offset: [0, 20]},strokeColor: 'black', fixed: true});
+      var xticks = board.create('ticks',[xaxis,5],{drawLabels: true, label: {offset: [-4, -20]},
+      minorTicks: 0});
+      
+      // create the y-axis
+      var yaxis = board.create('line',[[0,0],[0,1]], 
+        {lastarrow:true,name:'Y',withLabel:true, label: {position: 'rt',offset: [-20, 0]},
+         strokeColor: 'black', fixed: true });
+      var yticks = board.create('ticks',[yaxis,5],{
+      drawLabels: true,
+      label: {offset: [-25, 0]},
+      minorTicks: 0
+      });
+      
+      //point coordinate variables
+      var xa = Numbas.jme.unwrapValue(scope.variables.xa);
+      var xb = Numbas.jme.unwrapValue(scope.variables.xb);
+      var ya = Numbas.jme.unwrapValue(scope.variables.ya);
+      var yb = Numbas.jme.unwrapValue(scope.variables.yb);
+      var m = Numbas.jme.unwrapValue(scope.variables.m);
+      var c = Numbas.jme.unwrapValue(scope.variables.c);
+      
+      //points (with nice colors)
+      var a = board.create('point',[xa,ya],{name: 'A', size: 7, fillColor: 'blue' , strokeColor: 'lightblue' , highlightFillColor: 'lightblue', highlightStrokeColor: 'yellow', fixed: true, showInfobox: true});
+      var b = board.create('point',[xb,yb],{name: 'B', size: 7, fillColor: 'blue' , strokeColor: 'lightblue' , highlightFillColor: 'lightblue', highlightStrokeColor: 'yellow',fixed: true, showInfobox: true});
+      
+      var ab = board.create('line',[a,b],{name: 'AB', size: 7, fillColor: 'blue' , strokeColor: 'lightblue' , highlightFillColor: 'lightblue', highlightStrokeColor: 'yellow',fixed: true, showInfobox: true});
+            
+      return div;
+    output_type: html
+    parameters: []
+    language: javascript
+  PlotPoints:
+    definition: |
+      var div = Numbas.extensions.jsxgraph.makeBoard('400px','400px',{boundingBox:[-6,6,6,-6],grid:false,axis:false});
+      var board = div.board;
+      
+      // create the x-axis.
+      var xaxis = board.create('line',[[0,0],[1,0]], 
+        {lastarrow:true,name:'X',withLabel:true, label: {position: 'rt',offset: [0, 20]},strokeColor: 'black', fixed: true});
+      var xticks = board.create('ticks',[xaxis,10],{drawLabels: true, label: {offset: [-4, -20]},
+      minorTicks: 0});
+      
+      // create the y-axis
+      var yaxis = board.create('line',[[0,0],[0,1]], 
+        {lastarrow:true,name:'Y',withLabel:true, label: {position: 'rt',offset: [-20, 0]},
+         strokeColor: 'black', fixed: true });
+      var yticks = board.create('ticks',[yaxis,10],{
+      drawLabels: true,
+      label: {offset: [-25, 0]},
+      minorTicks: 0
+      });
+
+      //point coordinate variables
+      var xa = Numbas.jme.unwrapValue(scope.variables.xa);
+      var xb = Numbas.jme.unwrapValue(scope.variables.xb);
+      var ya = Numbas.jme.unwrapValue(scope.variables.ya);
+      var yb = Numbas.jme.unwrapValue(scope.variables.yb);
+      var m = Numbas.jme.unwrapValue(scope.variables.m);
+      var c = Numbas.jme.unwrapValue(scope.variables.c);
+      
+      //make board
+      //var div = Numbas.extensions.jsxgraph.makeBoard('400px','400px',{boundingBox:[-1,yb+5,xb+3,-2],grid: true});
+      //var board = div.board;
+      //question.board = board;
+      
+      
+      //points (with nice colors)
+      var a = board.create('point',[xa,ya],{name: 'A', size: 7, fillColor: 'blue' , strokeColor: 'lightblue' , highlightFillColor: 'lightblue', highlightStrokeColor: 'yellow', fixed: true, showInfobox: true});
+      var b = board.create('point',[xb,yb],{name: 'B', size: 7, fillColor: 'blue' , strokeColor: 'lightblue' , highlightFillColor: 'lightblue', highlightStrokeColor: 'yellow',fixed: true, showInfobox: true});
+      
+      
+      //ans(was tree) is defined at the end and nscope looks important
+      //but they're both variables
+        var ans;
+        var nscope = new Numbas.jme.Scope([scope,{variables:{x:new Numbas.jme.types.TNum(0)}}]);
+      //this is the beating heart of whatever plots the function,
+      //I've changed this from being curve to functiongraph
+        var line = board.create('functiongraph',[function(x){
+      if(ans) {
+        try {
+      nscope.variables.x.value = x;
+        var val = Numbas.jme.evaluate(ans,nscope).value;
+        return val;
+        }
+        catch(e) {
+      return 163;
+        }
+      }
+      else
+        return 163;
+        }]
+                                , {strokeColor:"blue",strokeWidth: 4}                    );
+       
+      var correct_line = board.create('functiongraph',[function(x){ return m*x+c}], {strokeColor:"green",setLabelText:'mx+c',visible: false, strokeWidth: 4, highlightStrokeColor: 'green'} )
+      
+      question.lines = {
+        l:line, c:correct_line
+      }
+      
+        $('body').on('question-html-attached',function(e,question,qd) {
+      ko.computed(function(){
+      var expr = question.parts[1].gaps[0].display.studentAnswer();
+      
+      //define ans as this 
+      try {
+        ans = Numbas.jme.compile(expr,scope);
+      }
+      catch(e) {
+        ans = null;
+      }
+      line.updateCurve();
+      correct_line.updateCurve();
+      board.update();
+      });
+      });      
+      return div;
+    output_type: html
+    parameters: []
+    language: javascript
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
     }
 }
