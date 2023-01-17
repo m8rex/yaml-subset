@@ -4,6 +4,7 @@ expression: parsed
 ---
 Ok(
     Document {
+        leading_comments: [],
         items: [
             Comment(
                 " test",
@@ -170,6 +171,38 @@ Ok(
                                                 "now a space \\n vs \\\\n",
                                             ),
                                             RemovableNewline,
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "l",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: SingleQuotedString(
+                                                        [
+                                                            String(
+                                                                "sqrt( {d}^({r*n+m}m+{p}) * x^({r*a+p})  * y^{b*r+q} )",
+                                                            ),
+                                                        ],
+                                                    ),
+                                                },
+                                            ),
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: UnquotedString(
+                                                        "Read the values of the cyclometric numbers off of the circle. <br/> {gon_circle}",
+                                                    ),
+                                                },
+                                            ),
                                         ],
                                     ),
                                 },

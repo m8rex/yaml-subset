@@ -1,0 +1,6 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+default_value: random(-9 .. 9 except [0, a])

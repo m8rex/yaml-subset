@@ -1,7 +1,8 @@
 use pest_consume::{match_nodes, Error, Parser};
 
 use super::{AliasedYaml, Document, HashData, HashElement, Yaml, DocumentData, ArrayData, string::{DoubleQuotedStringPart, DoubleQuotedStringEscapedChar, SingleQuotedStringEscapedChar, SingleQuotedStringPart}};
-type YamlResult<T> = std::result::Result<T, Error<Rule>>;
+pub type YamlResult<T> = std::result::Result<T, Error<Rule>>;
+pub type DocumentResult = YamlResult<Document>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 #[derive(Parser)]
@@ -385,6 +386,17 @@ impl YamlParser {
             )
         }
 
+        fn leading_comments(input: Node) -> YamlResult<Vec<String>> {
+            //println!("{:?}", input);
+            match_nodes!(
+                input.into_children();
+                [commentnl(cs)..] => Ok(
+                    cs.collect()
+                   
+                )
+            )
+        }
+
         fn document(input: Node) -> YamlResult<Yaml> {
             match_nodes!(input.into_children();
         [hash(h)] => Ok(h),
@@ -395,8 +407,9 @@ impl YamlParser {
         fn yaml(input: Node) -> YamlResult<Document> {
             //println!("{:#?}"  , input);
             match_nodes!(input.into_children();
-                [commentnls(cs), document(val), comment(cs2).., EOI(_)] => Ok(
+                [leading_comments(before), commentnls(cs), document(val), comment(cs2).., EOI(_)] => Ok(
                     Document {
+                        leading_comments: before,
                         items: cs.into_iter().map(|c| DocumentData::Comment(c))
                         .chain(vec![DocumentData::Yaml(val)].into_iter())
                         .chain(cs2.into_iter().map(|c| DocumentData::Comment(c))).collect(),

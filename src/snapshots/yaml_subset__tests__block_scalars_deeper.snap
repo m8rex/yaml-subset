@@ -4,6 +4,7 @@ expression: parsed
 ---
 Ok(
     Document {
+        leading_comments: [],
         items: [
             Yaml(
                 Hash(

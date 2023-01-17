@@ -33,6 +33,7 @@ impl YamlInsert for DocumentData {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
+    pub leading_comments: Vec<String>,
     pub items: Vec<DocumentData>,
 }
 
@@ -63,6 +64,10 @@ impl YamlInsert for Document {
 impl Document {
     pub fn format(&self) -> Result<String, std::fmt::Error> {
         let mut s = String::new();
+        for comment in self.leading_comments.iter() {
+            writeln!(&mut s, "#{}", comment)?;
+        }
+
         write!(s, "---")?;
         for item in self.items.iter() {
             match item {

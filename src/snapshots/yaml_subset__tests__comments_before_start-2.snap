@@ -1,0 +1,8 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+# a comment
+# another one
+---
+x: 5

@@ -1,18 +1,18 @@
 extern crate pest;
 
-
 mod path;
 mod utils;
 pub mod yaml;
 
 pub use path::YamlPath;
+pub use yaml::{DocumentResult, YamlResult};
 
 #[cfg(test)]
 mod tests {
     use super::yaml::parse_yaml_file;
     use super::yaml::{AliasedYaml, Yaml, YamlInsert};
     use super::YamlPath;
-    use crate::yaml::{DoubleQuotedStringPart};
+    use crate::yaml::DoubleQuotedStringPart;
 
     #[test]
     fn basic() {
@@ -34,6 +34,10 @@ single_quoted: 'test escaping ''
 
 now a space \n vs \\n
 '
+l:
+ - 'sqrt( {d}^({r*n+m}m+{p}) * x^({r*a+p})  * y^{b*r+q} )'
+ - Read the values of the cyclometric numbers off of the circle. <br/> {gon_circle}
+
 # after
 "#;
         let parsed = parse_yaml_file(inp);
@@ -60,6 +64,32 @@ other: # check
 content: When you press <em>Submit part</em>.
 abs: An absolute value is written as |x|
 "#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn array_delimiters_in_text() {
+        let inp = r#"---
+default_value:  random(-9 .. 9 except [0, a])    
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn comments_before_start() {
+        let inp = r#"
+# a comment
+# another one
+
+---
+x: 5
+
+  "#;
+
         let parsed = parse_yaml_file(inp);
         insta::assert_debug_snapshot!(parsed);
         insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());

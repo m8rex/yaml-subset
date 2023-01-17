@@ -1,0 +1,31 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        leading_comments: [
+            " a comment",
+            " another one",
+        ],
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "x",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: UnquotedString(
+                                        "5",
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

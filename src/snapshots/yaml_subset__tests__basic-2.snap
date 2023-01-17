@@ -23,4 +23,7 @@ single_quoted: 'test escaping ''
 
 now a space \n vs \\n
 '
+l:
+  - 'sqrt( {d}^({r*n+m}m+{p}) * x^({r*a+p})  * y^{b*r+q} )'
+  - Read the values of the cyclometric numbers off of the circle. <br/> {gon_circle}
 # after

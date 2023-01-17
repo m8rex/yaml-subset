@@ -15,7 +15,7 @@ unquoted_inline_string_elements = { !(disallowed_unquoted_inline_string_elements
 unquoted_inline_string_start_elements = { !(disallowed_unquoted_inline_string_start_elements) ~ ANY } 
 unquoted_inline_string = @{ unquoted_inline_string_start_elements ~ unquoted_inline_string_elements* }
 disallowed_unquoted_string_start_elements = { "[" | "]" | "{" | "}" | ": " | "\"" | "'" | "#" | ">" | "|" | NEWLINE }
-disallowed_unquoted_string_elements = { "[" | "]" | ": " | "\"" | "#" |  NEWLINE }
+disallowed_unquoted_string_elements = { ": " | "\"" | "#" |  NEWLINE }
 unquoted_string_elements = { !(disallowed_unquoted_string_elements) ~ ANY } 
 unquoted_string_start_elements = { !(disallowed_unquoted_string_start_elements) ~ ANY } 
 unquoted_string = @{ unquoted_string_start_elements ~ unquoted_string_elements* }
@@ -79,8 +79,10 @@ commentnl = { (comment_base ~ blank) }
 comment = { comment_base }
 commentnls = { commentnl* }
 
+leading_comments = { (blanknl* ~ commentnl ~ blanknl*)* }
+
 blank = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | (SPACE_SEPARATOR* ~ NEWLINE)? }
 blanknl = _{ SPACE_SEPARATOR* ~ NEWLINE ~ (SPACE_SEPARATOR* ~ NEWLINE)+ | SPACE_SEPARATOR* ~ NEWLINE }
 
 document = { hash | array }
-yaml = { SOI ~ "---" ~ blanknl ~ commentnls ~ document ~ blank ~ (comment ~ blank)* ~ spaces ~ EOI }
+yaml = { SOI ~ leading_comments ~ "---" ~ blanknl ~ commentnls ~ document ~ blank ~ (comment ~ blank)* ~ spaces ~ EOI }
