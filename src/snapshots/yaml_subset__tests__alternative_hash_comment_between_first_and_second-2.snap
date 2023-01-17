@@ -1,0 +1,9 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+parts:
+  - type: choose_one
+    # prompt: "file:statement-wrong.html"
+    answer_data: tmp

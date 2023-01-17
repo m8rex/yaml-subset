@@ -66,9 +66,9 @@ aliased_yaml_value = { (alias ~ SPACE_SEPARATOR*)? ~ yaml_value }
 hash_element = { hash_key ~ ":" ~ (SPACE_SEPARATOR+ | blanknl) ~ block_array_aliased_yaml_value}
 first_hash_element = { hash_element ~ comment? }
 hash_element_data = { blanknl ~ commentnls ~ PEEK ~ hash_element ~ comment? }
-hash = { commentnls ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element  ~ (hash_element_data)* ~ DROP ~ commentnls }
+hash = { NEWLINE? ~ commentnls ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element  ~ (hash_element_data)* ~ DROP ~ commentnls }
 
-alternative_hash = { first_hash_element ~ blanknl ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element ~ (hash_element_data)* ~ DROP ~ commentnls }
+alternative_hash = { first_hash_element ~ blanknl ~ commentnls ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element ~ (hash_element_data)* ~ DROP ~ commentnls }
 
 
 inline_hash = { "{" ~ spaces ~ "}" }

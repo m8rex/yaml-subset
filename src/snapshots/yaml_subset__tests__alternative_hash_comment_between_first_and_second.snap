@@ -1,0 +1,63 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        leading_comments: [],
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "parts",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Array(
+                                        [
+                                            Element(
+                                                AliasedYaml {
+                                                    alias: None,
+                                                    value: Hash(
+                                                        [
+                                                            Element(
+                                                                HashElement {
+                                                                    key: "type",
+                                                                    value: AliasedYaml {
+                                                                        alias: None,
+                                                                        value: UnquotedString(
+                                                                            "choose_one",
+                                                                        ),
+                                                                    },
+                                                                },
+                                                            ),
+                                                            Comment(
+                                                                " prompt: \"file:statement-wrong.html\"",
+                                                            ),
+                                                            Element(
+                                                                HashElement {
+                                                                    key: "answer_data",
+                                                                    value: AliasedYaml {
+                                                                        alias: None,
+                                                                        value: UnquotedString(
+                                                                            "tmp",
+                                                                        ),
+                                                                    },
+                                                                },
+                                                            ),
+                                                        ],
+                                                    ),
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

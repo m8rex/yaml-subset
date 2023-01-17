@@ -202,6 +202,34 @@ s: &key test, 5, hi
     }
 
     #[test]
+    fn alternative_hash_comment_between_first_and_second() {
+        let inp = r#"---
+parts:
+- type: choose_one
+  # prompt: "file:statement-wrong.html"
+  answer_data: tmp 
+  "#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
+    fn comment_before_first_key() {
+        let inp = r#"---
+default_value:
+    content: 
+      # NOTE: the 'original' non-shuffled array advr is used, rather than x_advr !!!
+      # Better advice to be written ...? This one does not correctly extend to users of this template!!
+      nl: "Gebruik het merkwaardig product {if(a*b>0, advr[0], advr[1])}"
+      en: "Use the special product {if(a*b>0, advr[0], advr[1])}""#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
     fn insert_hash_top() {
         let inp = r#"---
 inline_array: [test, 5, hi]

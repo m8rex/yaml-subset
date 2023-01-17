@@ -300,12 +300,13 @@ impl YamlParser {
 
     fn alternative_hash(input: Node) -> YamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [first_hash_element(element1), first_hash_element(element2), hash_element_data(elements).., commentnls(cs)] => Ok(
+            [first_hash_element(element1), commentnls(cs), first_hash_element(element2), hash_element_data(elements).., commentnls(cs2)] => Ok(
                 Yaml::Hash(
                     element1.into_iter()
+                    .chain(cs.into_iter().map(|c| HashData::Comment(c)))
                     .chain(element2.into_iter())
                     .chain(elements.into_iter().flatten())
-                    .chain(cs.into_iter().map(|c| HashData::Comment(c)))
+                    .chain(cs2.into_iter().map(|c| HashData::Comment(c)))
                     .collect()
                 )
             ),

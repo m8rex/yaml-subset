@@ -1,0 +1,11 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().format().unwrap()
+---
+---
+default_value:
+  content:
+    # NOTE: the 'original' non-shuffled array advr is used, rather than x_advr !!!
+    # Better advice to be written ...? This one does not correctly extend to users of this template!!
+    nl: "Gebruik het merkwaardig product {if(a*b>0, advr[0], advr[1])}"
+    en: "Use the special product {if(a*b>0, advr[0], advr[1])}"
