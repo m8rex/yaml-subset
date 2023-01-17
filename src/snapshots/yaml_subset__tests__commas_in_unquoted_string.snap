@@ -14,31 +14,16 @@ Ok(
                                 key: "inline_array",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: Array(
+                                    value: InlineArray(
                                         [
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "test",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "test",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "5",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "5",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "hi",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "hi",
                                             ),
                                         ],
                                     ),

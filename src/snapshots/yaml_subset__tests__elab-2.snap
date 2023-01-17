@@ -11,10 +11,7 @@ v: &ok
   # comment
   - *test # an anchor
 v: test # maybe
-k: &kk
-  - 5
-  - 10
-  - "e"
+k: &kk [ 5, 10, "e" ]
 # after
 y:
   - x: 5

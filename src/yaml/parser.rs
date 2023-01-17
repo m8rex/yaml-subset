@@ -157,11 +157,9 @@ impl YamlParser {
         [inline_array_value(v), inline_array_value(vs)..] => {
             let mut values = vec![v];
             values.extend(vs);
-            Ok(Yaml::Array(values.into_iter().map(|v| super::ArrayData::Element(AliasedYaml {
-                alias: None,
-                value: v,
-            })).collect()))
-        })
+            Ok(Yaml::InlineArray(values))
+        },
+        [] => Ok(Yaml::InlineArray(vec![])))
     }
 
     fn string(input: Node) -> YamlResult<Yaml> {

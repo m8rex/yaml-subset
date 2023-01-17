@@ -336,10 +336,9 @@ impl Yaml {
                 write!(f, " [")?;
                 for (idx, element) in v.iter().enumerate() {
                     if idx > 0 {
-                        write!(f, ", ")?;
+                        write!(f, ",")?;
                     }
-                    write!(f, " ",)?;
-                    element.format(f, spaces, None)?;
+                    element.format(f, 0, None)?;
                 }
                 write!(f, " ]")
             }

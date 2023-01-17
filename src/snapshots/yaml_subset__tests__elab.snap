@@ -87,35 +87,20 @@ Ok(
                                     alias: Some(
                                         "kk",
                                     ),
-                                    value: Array(
+                                    value: InlineArray(
                                         [
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "5",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "5",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "10",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "10",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: DoubleQuotedString(
-                                                        [
-                                                            String(
-                                                                "e",
-                                                            ),
-                                                        ],
+                                            DoubleQuotedString(
+                                                [
+                                                    String(
+                                                        "e",
                                                     ),
-                                                },
+                                                ],
                                             ),
                                         ],
                                     ),

@@ -82,37 +82,33 @@ Ok(
                                 key: "k",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: Array(
+                                    value: InlineArray(
                                         [
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "5",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "5",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: UnquotedString(
-                                                        "10",
-                                                    ),
-                                                },
+                                            UnquotedString(
+                                                "10",
                                             ),
-                                            Element(
-                                                AliasedYaml {
-                                                    alias: None,
-                                                    value: DoubleQuotedString(
-                                                        [
-                                                            String(
-                                                                "e",
-                                                            ),
-                                                        ],
+                                            DoubleQuotedString(
+                                                [
+                                                    String(
+                                                        "e",
                                                     ),
-                                                },
+                                                ],
                                             ),
                                         ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "variable_groups",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: InlineArray(
+                                        [],
                                     ),
                                 },
                             },

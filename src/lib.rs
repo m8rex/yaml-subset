@@ -26,6 +26,7 @@ v: &ok
    - *test
 v: test # maybe
 k: [5, 10, "e"]
+variable_groups: []
 double_quoted: "test
 
 now a space \n vs \\n
