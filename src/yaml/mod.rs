@@ -340,7 +340,10 @@ impl Yaml {
                     }
                     element.format(f, 0, None)?;
                 }
-                write!(f, " ]")
+                if !v.is_empty() {
+                    write!(f, " ")?;
+                }
+                write!(f, "]")
             }
             Yaml::Array(v) => {
                 if v.is_empty() {
