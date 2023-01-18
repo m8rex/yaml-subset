@@ -15,7 +15,7 @@ pub use hash_data::HashData;
 pub use hash_element::HashElement;
 pub use insert::YamlInsert;
 //pub use old_parser::parse_yaml_file;
-pub use parser::{parse_yaml_file, DocumentResult, YamlResult};
+pub use parser::{parse_yaml_file, DocumentResult, YamlError, YamlResult};
 pub use types::YamlTypes;
 
 use crate::path::Condition;
