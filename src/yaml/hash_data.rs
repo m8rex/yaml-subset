@@ -1,5 +1,6 @@
 use super::YamlInsert;
 use super::{HashElement, Yaml};
+use crate::yaml::Pretty;
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,6 +28,15 @@ impl YamlInsert for HashData {
         match self {
             HashData::Element(e) => e.for_hash(path, f, r),
             _ => 0,
+        }
+    }
+}
+
+impl Pretty for HashData {
+    fn pretty(self) -> Self {
+        match self {
+            HashData::Element(e) => HashData::Element(e.pretty()),
+            o => o,
         }
     }
 }

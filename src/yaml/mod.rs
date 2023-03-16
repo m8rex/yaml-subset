@@ -20,6 +20,9 @@ pub use types::YamlTypes;
 
 use crate::path::Condition;
 use crate::utils::indent;
+use crate::yaml::string::parse_double_quoted_string;
+use crate::yaml::string::parse_single_quoted_string;
+use crate::yaml::string::{create_folded, create_literal};
 use crate::YamlPath;
 use std::fmt::Write;
 
@@ -435,6 +438,72 @@ impl Yaml {
                 Ok(())
             }
             Yaml::Anchor(a) => write!(f, " *{}", a),
+        }
+    }
+}
+
+pub trait Pretty {
+    fn pretty(self) -> Self;
+}
+
+impl<T: Pretty> Pretty for Vec<T> {
+    fn pretty(self) -> Self {
+        self.into_iter().map(|x| x.pretty()).collect()
+    }
+}
+
+impl Pretty for Yaml {
+    fn pretty(self) -> Yaml {
+        let max_line_length = 90;
+        match self {
+            Yaml::EmptyInlineHash => Yaml::EmptyInlineHash,
+            Yaml::Hash(v) => {
+                if v.is_empty() {
+                    Yaml::EmptyInlineHash
+                } else {
+                    Yaml::Hash(v.pretty())
+                }
+            }
+            Yaml::InlineArray(v) => Yaml::InlineArray(v),
+            Yaml::Array(v) => {
+                if v.is_empty() {
+                    Yaml::InlineArray(Vec::new())
+                } else {
+                    Yaml::Array(v.pretty())
+                }
+            }
+            Yaml::UnquotedString(s) => Yaml::UnquotedString(s),
+            Yaml::DoubleQuotedString(parts) => {
+                let contains_escape = parts
+                    .iter()
+                    .any(|x| matches!(x, DoubleQuotedStringPart::EscapedChar(_)));
+                let s = parse_double_quoted_string(&parts);
+                let total_length = s.len();
+                if contains_escape {
+                    Yaml::LiteralString(create_literal(s))
+                } else if total_length > max_line_length {
+                    Yaml::FoldedString(create_folded(s, max_line_length))
+                } else {
+                    Yaml::DoubleQuotedString(parts)
+                }
+            }
+            Yaml::SingleQuotedString(parts) => {
+                let contains_newline = parts
+                    .iter()
+                    .any(|x| matches!(x, SingleQuotedStringPart::BlankLines(_)));
+                let s = parse_single_quoted_string(&parts);
+                let total_length = s.len();
+                if contains_newline {
+                    Yaml::LiteralString(create_literal(s))
+                } else if total_length > max_line_length {
+                    Yaml::FoldedString(create_folded(s, max_line_length))
+                } else {
+                    Yaml::SingleQuotedString(parts)
+                }
+            }
+            Yaml::LiteralString(lines) => Yaml::LiteralString(lines),
+            Yaml::FoldedString(lines) => Yaml::FoldedString(lines),
+            Yaml::Anchor(a) => Yaml::Anchor(a),
         }
     }
 }

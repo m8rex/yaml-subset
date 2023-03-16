@@ -1,5 +1,5 @@
-use super::YamlInsert;
 use super::{HashData, HashElement, Yaml};
+use super::{Pretty, YamlInsert};
 use crate::YamlPath;
 use std::fmt::Write;
 
@@ -27,6 +27,15 @@ impl YamlInsert for DocumentData {
         match self {
             DocumentData::Yaml(y) => y.for_hash(path, f, r),
             _ => 0,
+        }
+    }
+}
+
+impl Pretty for DocumentData {
+    fn pretty(self) -> Self {
+        match self {
+            DocumentData::Comment(c) => DocumentData::Comment(c),
+            DocumentData::Yaml(c) => DocumentData::Yaml(c.pretty()),
         }
     }
 }
@@ -76,5 +85,14 @@ impl Document {
             }?;
         }
         Ok(s)
+    }
+}
+
+impl Pretty for Document {
+    fn pretty(self) -> Self {
+        Self {
+            leading_comments: self.leading_comments,
+            items: self.items.pretty(),
+        }
     }
 }

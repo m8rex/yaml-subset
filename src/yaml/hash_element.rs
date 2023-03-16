@@ -1,5 +1,6 @@
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, Yaml};
+use crate::yaml::Pretty;
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +32,15 @@ impl YamlInsert for HashElement {
             }
             YamlPath::Key(_key, _conditions, Some(other)) => self.value.for_hash(&*other, f, r),
             _ => 0,
+        }
+    }
+}
+
+impl Pretty for HashElement {
+    fn pretty(self) -> Self {
+        Self {
+            key: self.key,
+            value: self.value.pretty(),
         }
     }
 }
