@@ -13,7 +13,7 @@ pub use array_data::ArrayData;
 pub use document::{Document, DocumentData};
 pub use hash_data::HashData;
 pub use hash_element::HashElement;
-pub use insert::{MyYamlVec, YamlInsert};
+pub use insert::{MyVec, YamlInsert};
 //pub use old_parser::parse_yaml_file;
 pub use parser::{parse_yaml_file, DocumentResult, YamlError, YamlResult};
 pub use types::YamlTypes;

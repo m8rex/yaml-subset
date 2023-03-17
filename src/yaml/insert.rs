@@ -15,16 +15,16 @@ impl Additive for usize {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MyYamlVec(pub Vec<Yaml>);
+pub struct MyVec<T>(pub Vec<T>);
 
-impl std::ops::Add<MyYamlVec> for MyYamlVec {
+impl<T> std::ops::Add<MyVec<T>> for MyVec<T> {
     type Output = Self;
-    fn add(self, rhs: MyYamlVec) -> Self::Output {
+    fn add(self, rhs: MyVec<T>) -> Self::Output {
         Self(self.0.into_iter().chain(rhs.0.into_iter()).collect())
     }
 }
 
-impl Additive for MyYamlVec {
+impl<T> Additive for MyVec<T> {
     fn zero() -> Self {
         Self(Vec::new())
     }
@@ -41,9 +41,9 @@ pub trait YamlInsert {
         F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize;
 
     /// Find values
-    fn find(&mut self, path: &YamlPath) -> MyYamlVec {
-        let f = |e: &mut HashElement| MyYamlVec(vec![e.value.value.clone()]);
-        let r = |hash: &mut Yaml| MyYamlVec(vec![hash.clone()]);
+    fn find(&mut self, path: &YamlPath) -> MyVec<Yaml> {
+        let f = |e: &mut HashElement| MyVec(vec![e.value.value.clone()]);
+        let r = |hash: &mut Yaml| MyVec(vec![hash.clone()]);
         self.for_hash(&path, &f, &r)
     }
 
