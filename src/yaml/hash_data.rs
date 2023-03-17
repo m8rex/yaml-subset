@@ -1,3 +1,4 @@
+use super::insert::Additive;
 use super::YamlInsert;
 use super::{HashElement, Yaml};
 use crate::yaml::Pretty;
@@ -20,14 +21,14 @@ impl YamlInsert for HashData {
             _ => 0,
         }
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         match self {
             HashData::Element(e) => e.for_hash(path, f, r),
-            _ => 0,
+            _ => A::zero(),
         }
     }
 }

@@ -13,13 +13,14 @@ pub use array_data::ArrayData;
 pub use document::{Document, DocumentData};
 pub use hash_data::HashData;
 pub use hash_element::HashElement;
-pub use insert::YamlInsert;
+pub use insert::{MyYamlVec, YamlInsert};
 //pub use old_parser::parse_yaml_file;
 pub use parser::{parse_yaml_file, DocumentResult, YamlError, YamlResult};
 pub use types::YamlTypes;
 
 use crate::path::Condition;
 use crate::utils::indent;
+use crate::yaml::insert::Additive;
 use crate::yaml::string::parse_double_quoted_string;
 use crate::yaml::string::parse_single_quoted_string;
 use crate::yaml::string::{create_folded, create_literal};
@@ -122,21 +123,21 @@ impl Yaml {
     }
 }
 impl YamlInsert for Yaml {
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         match path {
             YamlPath::Root(conditions) => {
                 if !self.fits_conditions(conditions) {
-                    return 0;
+                    return A::zero();
                 }
                 r(self)
             }
             YamlPath::Key(k, conditions, _) => {
                 if !self.fits_conditions(conditions) {
-                    return 0;
+                    return A::zero();
                 }
                 let key_exists = self.key_index(&k);
                 match self {
@@ -144,20 +145,20 @@ impl YamlInsert for Yaml {
                         if let Some(index) = key_exists {
                             data[index].for_hash(path, f, r)
                         } else {
-                            0
+                            A::zero()
                         }
                     }
-                    _ => 0,
+                    _ => A::zero(),
                 }
             }
             YamlPath::Indexes(indexes, conditions, _) => match self {
                 Yaml::InlineArray(elements) => {
-                    let mut count = 0;
+                    let mut count = A::zero();
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
                             if element.fits_conditions(conditions) {
-                                count += element.for_hash(path, f, r)
+                                count = count + element.for_hash(path, f, r)
                             }
                         }
                     }
@@ -168,40 +169,40 @@ impl YamlInsert for Yaml {
                         .iter_mut()
                         .filter(|e| matches!(e, ArrayData::Element(_)))
                         .collect();
-                    let mut count = 0;
+                    let mut count = A::zero();
                     for index in indexes.iter() {
                         let element_opt = elements.get_mut(*index);
                         if let Some(element) = element_opt {
                             if element.fits_conditions(conditions) {
-                                count += (*element).for_hash(path, f, r)
+                                count = count + (*element).for_hash(path, f, r)
                             }
                         }
                     }
                     count
                 }
-                _ => 0,
+                _ => A::zero(),
             },
             //YamlPath::AllIndexes(Some(other_path)) => match self {
             YamlPath::AllIndexes(conditions, _) => match self {
                 Yaml::InlineArray(elements) => {
-                    let mut count = 0;
+                    let mut count = A::zero();
                     for element in elements.iter_mut() {
                         if element.fits_conditions(conditions) {
-                            count += element.for_hash(path, f, r)
+                            count = count + element.for_hash(path, f, r)
                         }
                     }
                     count
                 }
                 Yaml::Array(elements) => {
-                    let mut count = 0;
+                    let mut count = A::zero();
                     for element in elements.iter_mut() {
                         if element.fits_conditions(conditions) {
-                            count += element.for_hash(path, f, r)
+                            count = count + element.for_hash(path, f, r)
                         }
                     }
                     count
                 }
-                _ => 0,
+                _ => A::zero(),
             },
         }
     }

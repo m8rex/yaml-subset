@@ -1,3 +1,4 @@
+use super::insert::Additive;
 use super::YamlInsert;
 use super::YamlTypes;
 use super::{HashData, HashElement, Yaml};
@@ -31,10 +32,10 @@ impl YamlInsert for AliasedYaml {
     {
         self.value.edit_hash_structure(path, f)
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         self.value.for_hash(path, f, r)
     }

@@ -1,18 +1,51 @@
 use super::YamlTypes;
 use super::{AliasedYaml, HashData, HashElement, Yaml};
 use crate::YamlPath;
-use std::ops::Fn;
 use std::collections::BTreeMap;
+use std::ops::Fn;
 
+pub trait Additive: std::ops::Add<Output = Self> + Sized {
+    fn zero() -> Self;
+}
+
+impl Additive for usize {
+    fn zero() -> Self {
+        0
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MyYamlVec(pub Vec<Yaml>);
+
+impl std::ops::Add<MyYamlVec> for MyYamlVec {
+    type Output = Self;
+    fn add(self, rhs: MyYamlVec) -> Self::Output {
+        Self(self.0.into_iter().chain(rhs.0.into_iter()).collect())
+    }
+}
+
+impl Additive for MyYamlVec {
+    fn zero() -> Self {
+        Self(Vec::new())
+    }
+}
 
 pub trait YamlInsert {
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize;
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A;
+
     fn edit_hash_structure<F>(&mut self, path: &YamlPath, f: &F) -> usize
     where
         F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize;
+
+    /// Find values
+    fn find(&mut self, path: &YamlPath) -> MyYamlVec {
+        let f = |e: &mut HashElement| MyYamlVec(vec![e.value.value.clone()]);
+        let r = |hash: &mut Yaml| MyYamlVec(vec![hash.clone()]);
+        self.for_hash(&path, &f, &r)
+    }
 
     /// Insert AliasedYaml into a hash
     /// Returns the amount of insertions.

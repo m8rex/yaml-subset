@@ -1,3 +1,4 @@
+use super::insert::Additive;
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, Yaml};
 use crate::yaml::Pretty;
@@ -16,10 +17,10 @@ impl YamlInsert for HashElement {
     {
         self.value.edit_hash_structure(path, f)
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         match path {
             YamlPath::Root(_conditions) => f(self),
@@ -27,11 +28,11 @@ impl YamlInsert for HashElement {
                 if key == &self.key {
                     f(self)
                 } else {
-                    0
+                    A::zero()
                 }
             }
             YamlPath::Key(_key, _conditions, Some(other)) => self.value.for_hash(&*other, f, r),
-            _ => 0,
+            _ => A::zero(),
         }
     }
 }

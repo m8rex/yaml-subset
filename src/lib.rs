@@ -12,7 +12,7 @@ mod tests {
     use super::yaml::parse_yaml_file;
     use super::yaml::{AliasedYaml, Yaml, YamlInsert};
     use super::YamlPath;
-    use crate::yaml::DoubleQuotedStringPart;
+    use crate::yaml::{DoubleQuotedStringPart, MyYamlVec};
 
     #[test]
     fn basic() {
@@ -788,5 +788,26 @@ k:
         println!("{}", parsed.format().unwrap());
         let parsed_out = parse_yaml_file(out).unwrap();
         assert_eq!(parsed_out, parsed);
+    }
+
+    #[test]
+    fn find() {
+        let inp = r#"---
+k:
+  - item1: test0
+    result:
+      yes: three
+  - item1: test1
+"#;
+
+        let mut parsed = parse_yaml_file(inp).unwrap();
+        let path: YamlPath = "k[*].item1".parse().unwrap();
+        assert_eq!(
+            MyYamlVec(vec![
+                Yaml::UnquotedString("test0".to_string()),
+                Yaml::UnquotedString("test1".to_string()),
+            ]),
+            parsed.find(&path)
+        );
     }
 }

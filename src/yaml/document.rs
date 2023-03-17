@@ -1,7 +1,9 @@
+use super::insert::Additive;
 use super::{HashData, HashElement, Yaml};
 use super::{Pretty, YamlInsert};
 use crate::YamlPath;
 use std::fmt::Write;
+use std::ops::Add;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DocumentData {
@@ -19,14 +21,14 @@ impl YamlInsert for DocumentData {
             _ => 0,
         }
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         match self {
             DocumentData::Yaml(y) => y.for_hash(path, f, r),
-            _ => 0,
+            _ => A::zero(),
         }
     }
 }
@@ -57,14 +59,14 @@ impl YamlInsert for Document {
         }
         count
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
-        let mut count = 0;
+        let mut count = A::zero();
         for item in self.items.iter_mut() {
-            count += item.for_hash(path, f, r);
+            count = count + item.for_hash(path, f, r);
         }
         count
     }

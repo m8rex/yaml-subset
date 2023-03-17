@@ -1,3 +1,4 @@
+use super::insert::Additive;
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, HashElement, Yaml};
 use crate::path::Condition;
@@ -21,22 +22,22 @@ impl YamlInsert for ArrayData {
             _ => 0,
         }
     }
-    fn for_hash<F, R>(&mut self, path: &YamlPath, f: &F, r: &R) -> usize
+    fn for_hash<F, R, A: Additive>(&mut self, path: &YamlPath, f: &F, r: &R) -> A
     where
-        F: Fn(&mut HashElement) -> usize,
-        R: Fn(&mut Yaml) -> usize,
+        F: Fn(&mut HashElement) -> A,
+        R: Fn(&mut Yaml) -> A,
     {
         match self {
             ArrayData::Element(a) => match path {
-                YamlPath::Root(_conditions) => 0,
+                YamlPath::Root(_conditions) => A::zero(),
                 YamlPath::Key(_key, _conditions, None) => a.for_hash(path, f, r),
                 YamlPath::AllIndexes(_, Some(other)) => a.for_hash(&*other, f, r),
                 YamlPath::AllIndexes(_, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
                 YamlPath::Indexes(_, _, Some(other)) => a.for_hash(&*other, f, r),
                 YamlPath::Indexes(_, _, None) => a.for_hash(&YamlPath::Root(Vec::new()), f, r),
-                _ => 0,
+                _ => A::zero(),
             },
-            _ => 0,
+            _ => A::zero(),
         }
     }
 }
