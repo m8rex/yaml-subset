@@ -41,7 +41,7 @@ pub trait YamlInsert {
         F: Fn(&mut Vec<HashData>, String, Option<usize>) -> usize;
 
     /// Find values
-    fn find(&mut self, path: &YamlPath) -> MyVec<Yaml> {
+    fn find_values(&mut self, path: &YamlPath) -> MyVec<Yaml> {
         let f = |e: &mut HashElement| MyVec(vec![e.value.value.clone()]);
         let r = |hash: &mut Yaml| MyVec(vec![hash.clone()]);
         self.for_hash(&path, &f, &r)

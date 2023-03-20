@@ -807,7 +807,7 @@ k:
                 Yaml::UnquotedString("test0".to_string()),
                 Yaml::UnquotedString("test1".to_string()),
             ]),
-            parsed.find(&path)
+            parsed.find_values(&path)
         );
     }
 }
