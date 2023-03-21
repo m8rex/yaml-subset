@@ -72,6 +72,29 @@ pub trait YamlInsert {
         };
         self.edit_hash_structure(path, &f)
     }
+
+    fn insert_into_hash_by_call<F>(&mut self, path: &YamlPath, h: F, overwrite: bool) -> usize
+    where
+        F: Fn() -> AliasedYaml,
+    {
+        let f = |data: &mut Vec<HashData>, key: String, key_index: Option<usize>| {
+            let value = HashData::Element(HashElement { key, value: h() });
+            if key_index.is_none() {
+                data.push(value);
+                1
+            } else if let Some(index) = key_index {
+                if overwrite {
+                    data[index] = value;
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        };
+        self.edit_hash_structure(path, &f)
+    }
     fn remove_from_hash(&mut self, path: &YamlPath) -> usize {
         let f = |data: &mut Vec<HashData>, _key: String, key_index: Option<usize>| {
             if let Some(index) = key_index {

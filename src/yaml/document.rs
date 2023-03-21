@@ -3,7 +3,6 @@ use super::{HashData, HashElement, Yaml};
 use super::{Pretty, YamlInsert};
 use crate::YamlPath;
 use std::fmt::Write;
-use std::ops::Add;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DocumentData {
