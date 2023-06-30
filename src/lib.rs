@@ -208,6 +208,39 @@ k: - - j
     }
 
     #[test]
+    fn block_scalars_with_indent_and_empty_lines() {
+        // see https://yaml-multiline.info/
+        let inp = r#"---
+        newlines: &newline |10
+                    Several lines of text,
+                  with some "quotes" of various 'types',
+                  and also a blank line:
+
+                  and some text with
+                    extra indentation
+                  on the next line,
+                  plus another line at the end.
+                  
+        folded: &folded >10
+                    Several lines of text,
+                  with some "quotes" of various 'types',
+                  and also a blank line:
+
+                  and some text with
+                    extra indentation
+                  on the next line,
+                  plus another line at the end.
+                  
+                  
+                  
+        test: 5"#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().format().unwrap());
+    }
+
+    #[test]
     fn block_scalars_deeper() {
         let inp = r#"---
 parts:
