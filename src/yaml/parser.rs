@@ -1,7 +1,13 @@
 use std::fmt::Display;
 
+use super::{
+    string::{
+        DoubleQuotedStringEscapedChar, DoubleQuotedStringPart, SingleQuotedStringEscapedChar,
+        SingleQuotedStringPart,
+    },
+    AliasedYaml, ArrayData, Document, DocumentData, HashData, HashElement, Yaml,
+};
 use pest_consume::{match_nodes, Error, Parser};
-use super::{AliasedYaml, Document, HashData, HashElement, Yaml, DocumentData, ArrayData, string::{DoubleQuotedStringPart, DoubleQuotedStringEscapedChar, SingleQuotedStringEscapedChar, SingleQuotedStringPart}};
 
 #[derive(Debug)]
 pub struct YamlError(Error<Rule>);
@@ -43,7 +49,7 @@ impl YamlParser {
     }
 
     fn comment_text(input: Node) -> InternalYamlResult<String> {
-        Ok(input.as_str().to_string())       
+        Ok(input.as_str().to_string())
     }
 
     fn comment(input: Node) -> InternalYamlResult<String> {
@@ -77,7 +83,7 @@ impl YamlParser {
     fn inline_hash_element(input: Node) -> InternalYamlResult<(String, Yaml)> {
         match_nodes!(input.into_children();
         [hash_key(k), inline_array_value(v)] => {
-            
+
             Ok((k, v))
         })
     }
@@ -93,14 +99,20 @@ impl YamlParser {
     }
 
     fn unquoted_string(input: Node) -> InternalYamlResult<Yaml> {
-        Ok(Yaml::UnquotedString(input.as_str().to_string().trim_end_matches(" ").to_string()))
+        Ok(Yaml::UnquotedString(
+            input.as_str().to_string().trim_end_matches(" ").to_string(),
+        ))
     }
 
     fn unquoted_inline_string(input: Node) -> InternalYamlResult<Yaml> {
-        Ok(Yaml::UnquotedString(input.as_str().to_string().trim_end_matches(" ").to_string()))
+        Ok(Yaml::UnquotedString(
+            input.as_str().to_string().trim_end_matches(" ").to_string(),
+        ))
     }
 
-    fn escaped_double_quote_char_value(input: Node) -> InternalYamlResult<DoubleQuotedStringEscapedChar> {
+    fn escaped_double_quote_char_value(
+        input: Node,
+    ) -> InternalYamlResult<DoubleQuotedStringEscapedChar> {
         match input.as_str().chars().next().unwrap() {
             'n' => Ok(DoubleQuotedStringEscapedChar::Newline),
             '\n' => Ok(DoubleQuotedStringEscapedChar::RealNewline),
@@ -156,7 +168,6 @@ impl YamlParser {
         Ok(input.as_str().to_string())
     }
 
-
     fn escaped_single_quote_char(input: Node) -> InternalYamlResult<SingleQuotedStringPart> {
         match_nodes!(input.into_children();
             [single_quote(inner)] => Ok(SingleQuotedStringPart::EscapedChar(inner)),
@@ -189,7 +200,7 @@ impl YamlParser {
         match_nodes!(input.into_children();
             [anchor(value)] => Ok(value),
             [inline_array(value)] => Ok(value),
-            [inline_hash(value)] => Ok(value),        
+            [inline_hash(value)] => Ok(value),
             [inline_array_string(value)] => Ok(value))
     }
 
@@ -222,36 +233,48 @@ impl YamlParser {
         Ok(input.as_str().to_string())
     }
 
+    fn block_empty_lines(input: Node) -> InternalYamlResult<Vec<String>> {
+        Ok((0..input.as_str().len())
+            .into_iter()
+            .map(|_| "".to_string())
+            .collect())
+    }
+
     fn string_multiline_indent(input: Node) -> InternalYamlResult<Option<usize>> {
-        Ok(
-            if input.as_str().is_empty() {
-                None
-            } else {
-                let given : usize = input.as_str().parse().unwrap();
-                Some(given - 1)
-            }
-        )
+        Ok(if input.as_str().is_empty() {
+            None
+        } else {
+            let given: usize = input.as_str().parse().unwrap();
+            Some(given - 1)
+        })
+    }
+
+    fn string_multiline_content_part(input: Node) -> InternalYamlResult<Vec<String>> {
+        match_nodes!(input.into_children();
+        [block_empty_lines(es), block_string(b)] => {
+            Ok(es.into_iter().chain(std::iter::once(b)).collect())
+        })
     }
 
     fn string_multiline_content(input: Node) -> InternalYamlResult<Vec<String>> {
         match_nodes!(input.into_children();
-            [block_string(b), block_string(bs)..] => {
-                Ok(vec![b].into_iter().chain(bs.into_iter()).collect())
-            })
+        [block_empty_lines(es), block_string(b), string_multiline_content_part(bs)..] => {
+            Ok(es.into_iter().chain(std::iter::once(b)).chain(bs.into_iter().flat_map(|x| x)).collect())
+        })
     }
 
     fn string_multiline_folded(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::FoldedString(
-                clean_multiline_strings(indent, cs)
-            )))
+        [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::FoldedString(
+            clean_multiline_strings(indent, cs)
+        )))
     }
 
     fn string_multiline_literal(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::LiteralString(
-                clean_multiline_strings(indent, cs)
-            )))
+        [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::LiteralString(
+            clean_multiline_strings(indent, cs)
+        )))
     }
 
     fn yaml_value(input: Node) -> InternalYamlResult<Yaml> {
@@ -406,71 +429,70 @@ impl YamlParser {
 
     fn block_array(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [commentnls(cs),first_block_array_element(element1), block_array_data(elements).., commentnls(cs2)] => Ok(
-                Yaml::Array(
-                    cs.into_iter().map(|c| ArrayData::Comment(c))
-                    .chain(element1.into_iter())
-                    .chain(elements.into_iter().flatten())
-                    .chain(cs2.into_iter().map(|c| ArrayData::Comment(c)))
-                    .collect()
-                )
-            )) 
-        }     
-        
-        fn alternative_array(input: Node) -> InternalYamlResult<Yaml> {
-            match_nodes!(input.into_children();
-                [first_block_array_element(element1),first_block_array_element(element2), block_array_data(elements).., commentnls(cs)] => Ok(
-                    Yaml::Array(
-                        element1.into_iter()
-                        .chain(element2.into_iter())
-                        .chain(elements.into_iter().flatten())
-                        .chain(cs.into_iter().map(|c| ArrayData::Comment(c)))
-                        .collect()
-                    )
-                )) 
-            }    
-
-        fn commentnls(input: Node) -> InternalYamlResult<Vec<String>> {
-            //println!("{:?}", input);
-            match_nodes!(
-                input.into_children();
-                [commentnl(cs)..] => Ok(
-                    cs.collect()
-                   
-                )
+        [commentnls(cs),first_block_array_element(element1), block_array_data(elements).., commentnls(cs2)] => Ok(
+            Yaml::Array(
+                cs.into_iter().map(|c| ArrayData::Comment(c))
+                .chain(element1.into_iter())
+                .chain(elements.into_iter().flatten())
+                .chain(cs2.into_iter().map(|c| ArrayData::Comment(c)))
+                .collect()
             )
-        }
+        ))
+    }
 
-        fn leading_comments(input: Node) -> InternalYamlResult<Vec<String>> {
-            //println!("{:?}", input);
-            match_nodes!(
-                input.into_children();
-                [commentnl(cs)..] => Ok(
-                    cs.collect()
-                   
-                )
+    fn alternative_array(input: Node) -> InternalYamlResult<Yaml> {
+        match_nodes!(input.into_children();
+        [first_block_array_element(element1),first_block_array_element(element2), block_array_data(elements).., commentnls(cs)] => Ok(
+            Yaml::Array(
+                element1.into_iter()
+                .chain(element2.into_iter())
+                .chain(elements.into_iter().flatten())
+                .chain(cs.into_iter().map(|c| ArrayData::Comment(c)))
+                .collect()
             )
-        }
+        ))
+    }
 
-        fn document(input: Node) -> InternalYamlResult<Yaml> {
-            match_nodes!(input.into_children();
+    fn commentnls(input: Node) -> InternalYamlResult<Vec<String>> {
+        //println!("{:?}", input);
+        match_nodes!(
+            input.into_children();
+            [commentnl(cs)..] => Ok(
+                cs.collect()
+
+            )
+        )
+    }
+
+    fn leading_comments(input: Node) -> InternalYamlResult<Vec<String>> {
+        //println!("{:?}", input);
+        match_nodes!(
+            input.into_children();
+            [commentnl(cs)..] => Ok(
+                cs.collect()
+
+            )
+        )
+    }
+
+    fn document(input: Node) -> InternalYamlResult<Yaml> {
+        match_nodes!(input.into_children();
         [hash(h)] => Ok(h),
         [array(a)] => Ok(a))
-            
-        }
+    }
 
-        fn yaml(input: Node) -> InternalYamlResult<Document> {
-            //println!("{:#?}"  , input);
-            match_nodes!(input.into_children();
-                [leading_comments(before), commentnls(cs), document(val), comment(cs2).., EOI(_)] => Ok(
-                    Document {
-                        leading_comments: before,
-                        items: cs.into_iter().map(|c| DocumentData::Comment(c))
-                        .chain(vec![DocumentData::Yaml(val)].into_iter())
-                        .chain(cs2.into_iter().map(|c| DocumentData::Comment(c))).collect(),
-                    }
-                ))
-        }    
+    fn yaml(input: Node) -> InternalYamlResult<Document> {
+        //println!("{:#?}"  , input);
+        match_nodes!(input.into_children();
+        [leading_comments(before), commentnls(cs), document(val), comment(cs2).., EOI(_)] => Ok(
+            Document {
+                leading_comments: before,
+                items: cs.into_iter().map(|c| DocumentData::Comment(c))
+                .chain(vec![DocumentData::Yaml(val)].into_iter())
+                .chain(cs2.into_iter().map(|c| DocumentData::Comment(c))).collect(),
+            }
+        ))
+    }
 }
 
 pub fn parse_yaml_file(input_str: &str) -> YamlResult<Document> {
@@ -481,7 +503,6 @@ pub fn parse_yaml_file(input_str: &str) -> YamlResult<Document> {
     // Consume the `Node` recursively into the final value
     YamlParser::yaml(input).map_err(|e| e.into())
 }
-
 
 fn count_whitespace_bytes_at_start(input: &str) -> usize {
     input
@@ -494,5 +515,14 @@ fn count_whitespace_bytes_at_start(input: &str) -> usize {
 fn clean_multiline_strings(indent: Option<usize>, lines: Vec<String>) -> Vec<String> {
     let indent = indent.unwrap_or_else(|| count_whitespace_bytes_at_start(&lines[0]));
 
-    lines.into_iter().map(|x| x[indent..].to_string()).collect()
+    lines
+        .into_iter()
+        .map(|x| {
+            if x.is_empty() {
+                x
+            } else {
+                x[indent..].to_string()
+            }
+        })
+        .collect()
 }
