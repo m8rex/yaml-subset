@@ -5,6 +5,8 @@ expression: parsed.unwrap().format().unwrap()
 ---
 field: &test {}
 item: {}
+item2: { key: "value", other: [ a, b ] }
 other:
   # check
+  combine: { key: { key: [ l, { a: "b" } ] } }
   item: {}

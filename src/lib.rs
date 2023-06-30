@@ -51,7 +51,9 @@ l:
         let inp = r#"---
 field: &test {}
 item: {}
+item2: { key: "value", other: [a, b]}
 other: # check
+  combine: { key: { key: [l, {a: "b"}]} }
   item: {}
 "#;
         let parsed = parse_yaml_file(inp);
