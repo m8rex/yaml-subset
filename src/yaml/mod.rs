@@ -33,7 +33,7 @@ pub use string::SingleQuotedStringPart;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Yaml {
-    EmptyInlineHash,
+    InlineHash(Vec<(String, Yaml)>),
     Hash(Vec<HashData>),
     InlineArray(Vec<Yaml>),
     Array(Vec<ArrayData>),
@@ -303,8 +303,19 @@ impl Yaml {
         parent: Option<Parent>,
     ) -> std::fmt::Result {
         match self {
-            Yaml::EmptyInlineHash => {
-                write!(f, " {{}}")
+            Yaml::InlineHash(v) => {
+                write!(f, " {{")?;
+                for (idx, element) in v.iter().enumerate() {
+                    if idx > 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, " {}:", element.0)?;
+                    element.1.format(f, 0, None)?;
+                }
+                if !v.is_empty() {
+                    write!(f, " ")?;
+                }
+                write!(f, "}}")
             }
             Yaml::Hash(v) => {
                 if v.is_empty() {
@@ -457,10 +468,10 @@ impl Pretty for Yaml {
     fn pretty(self) -> Yaml {
         let max_line_length = 90;
         match self {
-            Yaml::EmptyInlineHash => Yaml::EmptyInlineHash,
+            Yaml::InlineHash(h) => Yaml::InlineHash(h),
             Yaml::Hash(v) => {
                 if v.is_empty() {
-                    Yaml::EmptyInlineHash
+                    Yaml::InlineHash(Vec::new())
                 } else {
                     Yaml::Hash(v.pretty())
                 }

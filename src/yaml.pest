@@ -71,7 +71,8 @@ hash = { NEWLINE? ~ commentnls ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_ele
 alternative_hash = { first_hash_element ~ blanknl ~ commentnls ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element ~ (hash_element_data)* ~ DROP ~ commentnls }
 
 
-inline_hash = { "{" ~ spaces ~ "}" }
+inline_hash_element = { hash_key ~ spaces ~ ":" ~ spaces ~ inline_array_value }
+inline_hash = { "{" ~ (spaces ~ inline_hash_element ~ (spaces ~ "," ~ spaces ~ inline_hash_element)*)? ~ spaces ~ "}" }
 
 comment_text = { (!(NEWLINE) ~ ANY)* }
 comment_base = _{ SPACE_SEPARATOR* ~ "#" ~ comment_text  }

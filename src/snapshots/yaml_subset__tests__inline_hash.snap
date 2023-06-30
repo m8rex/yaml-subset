@@ -16,7 +16,9 @@ Ok(
                                     alias: Some(
                                         "test",
                                     ),
-                                    value: EmptyInlineHash,
+                                    value: InlineHash(
+                                        [],
+                                    ),
                                 },
                             },
                         ),
@@ -25,7 +27,44 @@ Ok(
                                 key: "item",
                                 value: AliasedYaml {
                                     alias: None,
-                                    value: EmptyInlineHash,
+                                    value: InlineHash(
+                                        [],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "item2",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: InlineHash(
+                                        [
+                                            (
+                                                "key",
+                                                DoubleQuotedString(
+                                                    [
+                                                        String(
+                                                            "value",
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
+                                            (
+                                                "other",
+                                                InlineArray(
+                                                    [
+                                                        UnquotedString(
+                                                            "a",
+                                                        ),
+                                                        UnquotedString(
+                                                            "b",
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
+                                        ],
+                                    ),
                                 },
                             },
                         ),
@@ -41,10 +80,55 @@ Ok(
                                             ),
                                             Element(
                                                 HashElement {
+                                                    key: "combine",
+                                                    value: AliasedYaml {
+                                                        alias: None,
+                                                        value: InlineHash(
+                                                            [
+                                                                (
+                                                                    "key",
+                                                                    InlineHash(
+                                                                        [
+                                                                            (
+                                                                                "key",
+                                                                                InlineArray(
+                                                                                    [
+                                                                                        UnquotedString(
+                                                                                            "l",
+                                                                                        ),
+                                                                                        InlineHash(
+                                                                                            [
+                                                                                                (
+                                                                                                    "a",
+                                                                                                    DoubleQuotedString(
+                                                                                                        [
+                                                                                                            String(
+                                                                                                                "b",
+                                                                                                            ),
+                                                                                                        ],
+                                                                                                    ),
+                                                                                                ),
+                                                                                            ],
+                                                                                        ),
+                                                                                    ],
+                                                                                ),
+                                                                            ),
+                                                                        ],
+                                                                    ),
+                                                                ),
+                                                            ],
+                                                        ),
+                                                    },
+                                                },
+                                            ),
+                                            Element(
+                                                HashElement {
                                                     key: "item",
                                                     value: AliasedYaml {
                                                         alias: None,
-                                                        value: EmptyInlineHash,
+                                                        value: InlineHash(
+                                                            [],
+                                                        ),
                                                     },
                                                 },
                                             ),

@@ -75,8 +75,22 @@ impl YamlParser {
         )
     }
 
-    fn inline_hash(_input: Node) -> InternalYamlResult<Yaml> {
-        Ok(Yaml::EmptyInlineHash)
+    fn inline_hash_element(input: Node) -> InternalYamlResult<(String, Yaml)> {
+        match_nodes!(input.into_children();
+        [hash_key(k), inline_array_value(v)] => {
+            
+            Ok((k, v))
+        })
+    }
+
+    fn inline_hash(input: Node) -> InternalYamlResult<Yaml> {
+        match_nodes!(input.into_children();
+        [inline_hash_element(v), inline_hash_element(vs)..] => {
+            let mut values = vec![v];
+            values.extend(vs);
+            Ok(Yaml::InlineHash(values))
+        },
+        [] => Ok(Yaml::InlineHash(vec![])))
     }
 
     fn unquoted_string(input: Node) -> InternalYamlResult<Yaml> {
