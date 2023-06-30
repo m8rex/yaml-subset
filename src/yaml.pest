@@ -41,9 +41,10 @@ string = { unquoted_string | double_quoted_string | single_quoted_string }
 inline_array_string = { unquoted_inline_string | double_quoted_string | single_quoted_string }
 
 block_string = @{ (!NEWLINE ~ ANY)+ | "" }
-string_multiline_content = { blanknl ~ (PUSH(" "+) ~ block_string) ~ (NEWLINE ~ PEEK ~ block_string)* ~ DROP }
-string_multiline_folded = { ">" ~ string_multiline_content }
-string_multiline_literal = { "|"  ~ string_multiline_content }
+string_multiline_content = { blanknl ~ (PEEK ~ PUSH(" ") ~ block_string) ~ (NEWLINE ~ PEEK[-2..] ~ block_string)* ~ DROP }
+string_multiline_indent = { (NUMBER+)* } 
+string_multiline_folded = { ">" ~ string_multiline_indent ~ string_multiline_content }
+string_multiline_literal = { "|" ~  string_multiline_indent  ~ string_multiline_content }
 
 anchor = { "*" ~ alias_name }
 alias = { "&" ~ alias_name }

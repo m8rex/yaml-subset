@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use pest_consume::{match_nodes, Error, Parser};
-
 use super::{AliasedYaml, Document, HashData, HashElement, Yaml, DocumentData, ArrayData, string::{DoubleQuotedStringPart, DoubleQuotedStringEscapedChar, SingleQuotedStringEscapedChar, SingleQuotedStringPart}};
 
 #[derive(Debug)]
@@ -223,6 +222,17 @@ impl YamlParser {
         Ok(input.as_str().to_string())
     }
 
+    fn string_multiline_indent(input: Node) -> InternalYamlResult<Option<usize>> {
+        Ok(
+            if input.as_str().is_empty() {
+                None
+            } else {
+                let given : usize = input.as_str().parse().unwrap();
+                Some(given - 1)
+            }
+        )
+    }
+
     fn string_multiline_content(input: Node) -> InternalYamlResult<Vec<String>> {
         match_nodes!(input.into_children();
             [block_string(b), block_string(bs)..] => {
@@ -232,12 +242,16 @@ impl YamlParser {
 
     fn string_multiline_folded(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [string_multiline_content(cs)] => Ok(Yaml::FoldedString(cs)))
+            [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::FoldedString(
+                clean_multiline_strings(indent, cs)
+            )))
     }
 
     fn string_multiline_literal(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [string_multiline_content(cs)] => Ok(Yaml::LiteralString(cs)))
+            [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::LiteralString(
+                clean_multiline_strings(indent, cs)
+            )))
     }
 
     fn yaml_value(input: Node) -> InternalYamlResult<Yaml> {
@@ -466,4 +480,19 @@ pub fn parse_yaml_file(input_str: &str) -> YamlResult<Document> {
     let input = inputs.single()?;
     // Consume the `Node` recursively into the final value
     YamlParser::yaml(input).map_err(|e| e.into())
+}
+
+
+fn count_whitespace_bytes_at_start(input: &str) -> usize {
+    input
+        .chars()
+        .take_while(|ch| ch.is_whitespace() && *ch != '\n')
+        .map(|ch| ch.len_utf8())
+        .sum()
+}
+
+fn clean_multiline_strings(indent: Option<usize>, lines: Vec<String>) -> Vec<String> {
+    let indent = indent.unwrap_or_else(|| count_whitespace_bytes_at_start(&lines[0]));
+
+    lines.into_iter().map(|x| x[indent..].to_string()).collect()
 }

@@ -436,15 +436,25 @@ impl Yaml {
                 write!(f, "'")
             }
             Yaml::LiteralString(lines) => {
-                write!(f, " |")?;
-                for line in lines.iter() {
+                for (idx, line) in lines.iter().enumerate() {
+                    if idx == 0 {
+                        write!(f, " |")?;
+                        if line.starts_with(" ") {
+                            write!(f, "2")?;
+                        }
+                    }
                     write!(f, "\n{}{}", indent(spaces), line)?;
                 }
                 Ok(())
             }
             Yaml::FoldedString(lines) => {
-                write!(f, " >")?;
-                for line in lines.iter() {
+                for (idx, line) in lines.iter().enumerate() {
+                    if idx == 0 {
+                        write!(f, " >")?;
+                        if line.starts_with(" ") {
+                            write!(f, "2")?;
+                        }
+                    }
                     write!(f, "\n{}{}", indent(spaces), line)?;
                 }
                 Ok(())
