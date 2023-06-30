@@ -25,7 +25,6 @@ pub fn parse_folded(lines: Vec<&str>) -> String {
     if lines.is_empty() {
         return String::new();
     }
-
     let start = lines[0].to_string();
 
     let result = lines
@@ -36,17 +35,21 @@ pub fn parse_folded(lines: Vec<&str>) -> String {
             let is_empty = if element.is_empty() {
                 c.push_str("\n");
                 true
-            } else if element.starts_with(" ") {
-                c.push_str("\n");
-                c.push_str(element);
-                c.push_str("\n");
-                true
             } else {
-                if !prev_was_empty {
-                    c.push_str(" ");
+                let without_indent = &element; // TODO: remove
+
+                if without_indent.starts_with(" ") {
+                    c.push_str("\n");
+                    c.push_str(without_indent);
+                    c.push_str("\n");
+                    true
+                } else {
+                    if !prev_was_empty {
+                        c.push_str(" ");
+                    }
+                    c.push_str(without_indent);
+                    false
                 }
-                c.push_str(element);
-                false
             };
             (c, is_empty)
         })
@@ -209,6 +212,30 @@ on the next line, plus another line at the end.
 "#
         )
     }
+    /* TODO: remove
+        #[test]
+        fn parse_folded_indent() {
+            let input = vec![
+                "    Several lines of text,",
+                r#"  with some "quotes" of various 'types',"#,
+                "  and also a blank line:",
+                "",
+                "  and some text with",
+                "    extra indentation",
+                "  on the next line,",
+                "  plus another line at the end.",
+                "",
+                "",
+            ];
+            assert_eq!(
+                super::parse_folded(input),
+                r#"  Several lines of text, with some "quotes" of various 'types', and also a blank line:
+    and some text with
+      extra indentation
+    on the next line, plus another line at the end.
+    "#
+            )
+        }*/
 
     #[test]
     fn create_folded() {
@@ -264,4 +291,34 @@ plus another line at the end.
         input.pop(); // Remove extra one
         assert_eq!(input, super::create_literal(result))
     }
+
+    /* TODO: remove
+        #[test]
+        fn parse_literal_indent() {
+            let mut input = vec![
+                "    Several lines of text,",
+                r#"  with some "quotes" of various 'types',"#,
+                "  and also a blank line:",
+                "",
+                "  and some text with",
+                "    extra indentation",
+                "  on the next line,",
+                "  plus another line at the end.",
+                "",
+                "",
+            ];
+            let result = r#"  Several lines of text,
+    with some "quotes" of various 'types',
+    and also a blank line:
+
+    and some text with
+      extra indentation
+    on the next line,
+    plus another line at the end.
+    "#;
+            assert_eq!(super::parse_literal(&Some(2), input.clone()), result);
+            let result = format!(" {}", result); // add leading space as test
+            input.pop(); // Remove extra one
+            assert_eq!(input, super::create_literal(result))
+        }*/
 }
