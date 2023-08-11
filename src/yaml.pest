@@ -1,6 +1,6 @@
 space = _{ " " | NEWLINE }
 spaces = _{ space* }
-hash_key = { (LETTER | NUMBER | "_")+ }
+hash_key = { (LETTER | NUMBER | "_") ~ (LETTER | NUMBER | "_" | " " )* }
 alias_name = { (LETTER | NUMBER | "_")+ }
 
 number = @{
@@ -10,7 +10,7 @@ number = @{
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
 disallowed_unquoted_inline_string_start_elements = { "," | "[" | "]" | "{" | "}" | ": " | "\"" | "'" | "#" | NEWLINE }
-disallowed_unquoted_inline_string_elements = { "," | "[" | "]" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
+disallowed_unquoted_inline_string_elements = { "," | "[" | "]" | "{" | "}" | ": " | "\"" | "#" | ">" | "|" | NEWLINE }
 unquoted_inline_string_elements = { !(disallowed_unquoted_inline_string_elements) ~ ANY } 
 unquoted_inline_string_start_elements = { !(disallowed_unquoted_inline_string_start_elements) ~ ANY } 
 unquoted_inline_string = @{ unquoted_inline_string_start_elements ~ unquoted_inline_string_elements* }
