@@ -1,17 +1,25 @@
+use super::BlockChomping;
+
 /// handle ending newlines for literal and folded strings
-fn handle_ending_newlines(s: String) -> String {
-    let ends_with_newline = s.ends_with("\n");
-    let mut result = s.trim_end_matches("\n").to_string();
-    if ends_with_newline {
-        result.push_str("\n");
+fn handle_ending_newlines(s: String, chomping: BlockChomping) -> String {
+    match chomping {
+        BlockChomping::Keep => s,
+        BlockChomping::Clip => {
+            let ends_with_newline = s.ends_with("\n");
+            let mut result = s.trim_end_matches("\n").to_string();
+            if ends_with_newline {
+                result.push_str("\n");
+            }
+            result
+        }
+        BlockChomping::Strip => s.trim_end_matches("\n").to_string(),
     }
-    result
 }
 
 /// Parse literal string to string
-pub fn parse_literal(lines: Vec<&str>) -> String {
+pub fn parse_literal(lines: Vec<&str>, chomping: BlockChomping) -> String {
     let s = lines.join("\n");
-    handle_ending_newlines(s)
+    handle_ending_newlines(s, chomping)
 }
 
 // Create literal string for string
@@ -21,7 +29,7 @@ pub fn create_literal(s: String) -> Vec<String> {
 }
 
 /// Parse folded string to string
-pub fn parse_folded(lines: Vec<&str>) -> String {
+pub fn parse_folded(lines: Vec<&str>, chomping: BlockChomping) -> String {
     if lines.is_empty() {
         return String::new();
     }
@@ -54,7 +62,7 @@ pub fn parse_folded(lines: Vec<&str>) -> String {
             (c, is_empty)
         })
         .0;
-    handle_ending_newlines(result)
+    handle_ending_newlines(result, chomping)
 }
 
 fn split_on_length(input: String, length: usize) -> Vec<String> {
@@ -189,6 +197,8 @@ pub fn parse_double_quoted_string(parts: &Vec<DoubleQuotedStringPart>) -> String
 
 #[cfg(test)]
 mod tests {
+    use crate::yaml::BlockChomping;
+
     #[test]
     fn parse_folded() {
         let input = vec![
@@ -204,7 +214,7 @@ mod tests {
             "",
         ];
         assert_eq!(
-            super::parse_folded(input),
+            super::parse_folded(input, BlockChomping::Clip),
             r#"Several lines of text, with some "quotes" of various 'types', and also a blank line:
 and some text with
   extra indentation
@@ -286,7 +296,10 @@ and some text with
 on the next line,
 plus another line at the end.
 "#;
-        assert_eq!(super::parse_literal(input.clone()), result);
+        assert_eq!(
+            super::parse_literal(input.clone(), BlockChomping::default()),
+            result
+        );
         let result = format!(" {}", result); // add leading space as test
         input.pop(); // Remove extra one
         assert_eq!(input, super::create_literal(result))

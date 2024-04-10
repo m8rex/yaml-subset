@@ -13,8 +13,13 @@ impl YamlTypes for Yaml {
             Yaml::UnquotedString(s) => Some(s.clone()),
             Yaml::SingleQuotedString(s) => Some(parse_single_quoted_string(&s)),
             Yaml::DoubleQuotedString(s) => Some(parse_double_quoted_string(&s)),
-            Yaml::FoldedString(qs) => Some(parse_folded(qs.iter().map(|q| &q[..]).collect())),
-            Yaml::LiteralString(qs) => Some(parse_literal(qs.iter().map(|q| &q[..]).collect())),
+            Yaml::FoldedString(qs, chomping) => {
+                Some(parse_folded(qs.iter().map(|q| &q[..]).collect(), *chomping))
+            }
+            Yaml::LiteralString(qs, chomping) => Some(parse_literal(
+                qs.iter().map(|q| &q[..]).collect(),
+                *chomping,
+            )),
             // TODO: anchor?
             _ => None,
         }

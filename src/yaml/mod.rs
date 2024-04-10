@@ -40,8 +40,8 @@ pub enum Yaml {
     SingleQuotedString(Vec<SingleQuotedStringPart>),
     DoubleQuotedString(Vec<DoubleQuotedStringPart>),
     UnquotedString(String),
-    FoldedString(Vec<String>),
-    LiteralString(Vec<String>),
+    FoldedString(Vec<String>, BlockChomping),
+    LiteralString(Vec<String>, BlockChomping),
     Anchor(String),
 }
 
@@ -435,10 +435,11 @@ impl Yaml {
                 }
                 write!(f, "'")
             }
-            Yaml::LiteralString(lines) => {
+            Yaml::LiteralString(lines, chomping) => {
                 for (idx, line) in lines.iter().enumerate() {
                     if idx == 0 {
                         write!(f, " |")?;
+                        chomping.write(f)?;
                         if line.starts_with(" ") {
                             write!(f, "2")?;
                         }
@@ -447,10 +448,11 @@ impl Yaml {
                 }
                 Ok(())
             }
-            Yaml::FoldedString(lines) => {
+            Yaml::FoldedString(lines, chomping) => {
                 for (idx, line) in lines.iter().enumerate() {
                     if idx == 0 {
                         write!(f, " >")?;
+                        chomping.write(f)?;
                         if line.starts_with(" ") {
                             write!(f, "2")?;
                         }
@@ -502,9 +504,9 @@ impl Pretty for Yaml {
                 let s = parse_double_quoted_string(&parts);
                 let total_length = s.len();
                 if contains_escape {
-                    Yaml::LiteralString(create_literal(s))
+                    Yaml::LiteralString(create_literal(s), BlockChomping::Keep)
                 } else if total_length > max_line_length {
-                    Yaml::FoldedString(create_folded(s, max_line_length))
+                    Yaml::FoldedString(create_folded(s, max_line_length), BlockChomping::Keep)
                 } else {
                     Yaml::DoubleQuotedString(parts)
                 }
@@ -516,16 +518,39 @@ impl Pretty for Yaml {
                 let s = parse_single_quoted_string(&parts);
                 let total_length = s.len();
                 if contains_newline {
-                    Yaml::LiteralString(create_literal(s))
+                    Yaml::LiteralString(create_literal(s), BlockChomping::Keep)
                 } else if total_length > max_line_length {
-                    Yaml::FoldedString(create_folded(s, max_line_length))
+                    Yaml::FoldedString(create_folded(s, max_line_length), BlockChomping::Keep)
                 } else {
                     Yaml::SingleQuotedString(parts)
                 }
             }
-            Yaml::LiteralString(lines) => Yaml::LiteralString(lines),
-            Yaml::FoldedString(lines) => Yaml::FoldedString(lines),
+            Yaml::LiteralString(lines, chomping) => Yaml::LiteralString(lines, chomping),
+            Yaml::FoldedString(lines, chomping) => Yaml::FoldedString(lines, chomping),
             Yaml::Anchor(a) => Yaml::Anchor(a),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum BlockChomping {
+    Clip,
+    Strip,
+    Keep,
+}
+
+impl BlockChomping {
+    fn write(&self, f: &mut String) -> std::fmt::Result {
+        match self {
+            Self::Clip => Ok(()),
+            Self::Strip => write!(f, "-"),
+            Self::Keep => write!(f, "+"),
+        }
+    }
+}
+
+impl Default for BlockChomping {
+    fn default() -> Self {
+        Self::Clip
     }
 }

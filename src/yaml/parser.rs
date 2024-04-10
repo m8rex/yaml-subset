@@ -5,7 +5,7 @@ use super::{
         DoubleQuotedStringEscapedChar, DoubleQuotedStringPart, SingleQuotedStringEscapedChar,
         SingleQuotedStringPart,
     },
-    AliasedYaml, ArrayData, Document, DocumentData, HashData, HashElement, Yaml,
+    AliasedYaml, ArrayData, BlockChomping, Document, DocumentData, HashData, HashElement, Yaml,
 };
 use pest_consume::{match_nodes, Error, Parser};
 
@@ -240,6 +240,14 @@ impl YamlParser {
             .collect())
     }
 
+    fn string_block_chomping(input: Node) -> InternalYamlResult<BlockChomping> {
+        Ok(match input.as_str() {
+            "+" => BlockChomping::Keep,
+            "-" => BlockChomping::Strip,
+            _ => unreachable!(),
+        })
+    }
+
     fn string_multiline_indent(input: Node) -> InternalYamlResult<Option<usize>> {
         Ok(if input.as_str().is_empty() {
             None
@@ -266,14 +274,22 @@ impl YamlParser {
     fn string_multiline_folded(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
         [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::FoldedString(
-            clean_multiline_strings(indent, cs)
+            clean_multiline_strings(indent, cs), BlockChomping::Clip
+        )),
+        [string_block_chomping(chomp), string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::FoldedString(
+            clean_multiline_strings(indent, cs), chomp
         )))
+
+        // string_block_chomping
     }
 
     fn string_multiline_literal(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
         [string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::LiteralString(
-            clean_multiline_strings(indent, cs)
+            clean_multiline_strings(indent, cs), BlockChomping::Clip
+        )),
+        [string_block_chomping(chomp), string_multiline_indent(indent), string_multiline_content(cs)] => Ok(Yaml::LiteralString(
+            clean_multiline_strings(indent, cs), chomp
         )))
     }
 

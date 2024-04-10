@@ -45,8 +45,10 @@ block_empty_lines = @{ NEWLINE* }
 string_multiline_content_part = { NEWLINE ~ block_empty_lines ~ PEEK[-2..] ~ block_string }
 string_multiline_content = { blanknl ~ block_empty_lines ~ (PEEK ~ PUSH(" ") ~ block_string) ~ string_multiline_content_part* ~ DROP }
 string_multiline_indent = { (NUMBER+)* } 
-string_multiline_folded = { ">" ~ string_multiline_indent ~ string_multiline_content }
-string_multiline_literal = { "|" ~  string_multiline_indent  ~ string_multiline_content }
+string_multiline_folded = { ">" ~ string_block_chomping? ~ string_multiline_indent ~ string_multiline_content }
+string_multiline_literal = { "|" ~ string_block_chomping? ~  string_multiline_indent  ~ string_multiline_content }
+
+string_block_chomping = { "-" | "+" }
 
 anchor = { "*" ~ alias_name }
 alias = { "&" ~ alias_name }
