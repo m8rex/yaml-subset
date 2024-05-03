@@ -1,6 +1,6 @@
 space = _{ " " | NEWLINE }
 spaces = _{ space* }
-hash_key = { (LETTER | NUMBER | "_") ~ (LETTER | NUMBER | "_" | " " )* }
+hash_key = { (LETTER | NUMBER | "_") ~ (LETTER | NUMBER | "_" | "-" | " " )* }
 alias_name = { (LETTER | NUMBER | "_")+ }
 
 number = @{
