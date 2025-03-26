@@ -1,0 +1,15 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().pretty().format().unwrap()
+---
+---
+submission_id: 0195d1a3-9c41-7203-aad8-29603034fd9c
+datetime_rfc3339: "2025-03-26T09:48:35.393+01:00"
+type_with_data:
+  Programming:
+    content:
+      code: |+
+        import math
+        def schuine_zijde(a,b):
+          c = math.sqrt(a.a + b.b)
+          return c

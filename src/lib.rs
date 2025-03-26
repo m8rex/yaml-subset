@@ -12,7 +12,7 @@ mod tests {
     use super::yaml::parse_yaml_file;
     use super::yaml::{AliasedYaml, Yaml, YamlInsert};
     use super::YamlPath;
-    use crate::yaml::{DoubleQuotedStringPart, MyVec};
+    use crate::yaml::{DoubleQuotedStringPart, MyVec, Pretty};
 
     #[test]
     fn basic() {
@@ -910,5 +910,30 @@ k:
             ]),
             parsed.find_values(&path)
         );
+    }
+
+    #[test]
+    fn pretty_long_double_quoted_string() {
+        let inp = r#"---
+default_value: "import math\ndef schuine_zijde(a,b):\n  pytha = math.sqrt(a**2+b**2)\n  return pytha\nprint(schuine_zijde(6,7))"   
+"#;
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().pretty().format().unwrap());
+    }
+
+    #[test]
+    fn pretty_long_double_quoted_string_deeper_level() {
+        let inp = r#"---
+submission_id: 0195d1a3-9c41-7203-aad8-29603034fd9c
+datetime_rfc3339: "2025-03-26T09:48:35.393+01:00"
+type_with_data:
+  Programming:
+    content:
+      code: "import math\ndef schuine_zijde(a,b):\n  c = math.sqrt(a.a + b.b)\n  return c""#;
+
+        let parsed = parse_yaml_file(inp);
+        insta::assert_debug_snapshot!(parsed);
+        insta::assert_display_snapshot!(parsed.unwrap().pretty().format().unwrap());
     }
 }

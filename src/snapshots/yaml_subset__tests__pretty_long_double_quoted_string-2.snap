@@ -1,0 +1,11 @@
+---
+source: src/lib.rs
+expression: parsed.unwrap().pretty().format().unwrap()
+---
+---
+default_value: |+
+  import math
+  def schuine_zijde(a,b):
+    pytha = math.sqrt(a**2+b**2)
+    return pytha
+  print(schuine_zijde(6,7))

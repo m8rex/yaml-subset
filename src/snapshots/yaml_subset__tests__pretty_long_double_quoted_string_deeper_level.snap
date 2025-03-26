@@ -1,0 +1,112 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        leading_comments: [],
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "submission_id",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: UnquotedString(
+                                        "0195d1a3-9c41-7203-aad8-29603034fd9c",
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "datetime_rfc3339",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: DoubleQuotedString(
+                                        [
+                                            String(
+                                                "2025-03-26T09:48:35.393+01:00",
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                        Element(
+                            HashElement {
+                                key: "type_with_data",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: Hash(
+                                        [
+                                            Element(
+                                                HashElement {
+                                                    key: "Programming",
+                                                    value: AliasedYaml {
+                                                        alias: None,
+                                                        value: Hash(
+                                                            [
+                                                                Element(
+                                                                    HashElement {
+                                                                        key: "content",
+                                                                        value: AliasedYaml {
+                                                                            alias: None,
+                                                                            value: Hash(
+                                                                                [
+                                                                                    Element(
+                                                                                        HashElement {
+                                                                                            key: "code",
+                                                                                            value: AliasedYaml {
+                                                                                                alias: None,
+                                                                                                value: DoubleQuotedString(
+                                                                                                    [
+                                                                                                        String(
+                                                                                                            "import math",
+                                                                                                        ),
+                                                                                                        EscapedChar(
+                                                                                                            Newline,
+                                                                                                        ),
+                                                                                                        String(
+                                                                                                            "def schuine_zijde(a,b):",
+                                                                                                        ),
+                                                                                                        EscapedChar(
+                                                                                                            Newline,
+                                                                                                        ),
+                                                                                                        String(
+                                                                                                            "  c = math.sqrt(a.a + b.b)",
+                                                                                                        ),
+                                                                                                        EscapedChar(
+                                                                                                            Newline,
+                                                                                                        ),
+                                                                                                        String(
+                                                                                                            "  return c",
+                                                                                                        ),
+                                                                                                    ],
+                                                                                                ),
+                                                                                            },
+                                                                                        },
+                                                                                    ),
+                                                                                ],
+                                                                            ),
+                                                                        },
+                                                                    },
+                                                                ),
+                                                            ],
+                                                        ),
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)

@@ -1,0 +1,56 @@
+---
+source: src/lib.rs
+expression: parsed
+---
+Ok(
+    Document {
+        leading_comments: [],
+        items: [
+            Yaml(
+                Hash(
+                    [
+                        Element(
+                            HashElement {
+                                key: "default_value",
+                                value: AliasedYaml {
+                                    alias: None,
+                                    value: DoubleQuotedString(
+                                        [
+                                            String(
+                                                "import math",
+                                            ),
+                                            EscapedChar(
+                                                Newline,
+                                            ),
+                                            String(
+                                                "def schuine_zijde(a,b):",
+                                            ),
+                                            EscapedChar(
+                                                Newline,
+                                            ),
+                                            String(
+                                                "  pytha = math.sqrt(a**2+b**2)",
+                                            ),
+                                            EscapedChar(
+                                                Newline,
+                                            ),
+                                            String(
+                                                "  return pytha",
+                                            ),
+                                            EscapedChar(
+                                                Newline,
+                                            ),
+                                            String(
+                                                "print(schuine_zijde(6,7))",
+                                            ),
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ],
+    },
+)
