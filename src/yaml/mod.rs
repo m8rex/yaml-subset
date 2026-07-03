@@ -5,8 +5,12 @@ mod hash_data;
 mod hash_element;
 mod insert;
 mod parser;
-mod string;
+pub mod string;
 mod types;
+#[cfg(feature = "serde")]
+pub mod serializer;
+#[cfg(feature = "serde")]
+pub mod deserializer;
 
 pub use aliased::AliasedYaml;
 pub use array_data::ArrayData;
@@ -17,6 +21,10 @@ pub use insert::{MyVec, YamlInsert};
 //pub use old_parser::parse_yaml_file;
 pub use parser::{parse_yaml_file, DocumentResult, YamlError, YamlResult};
 pub use types::YamlTypes;
+#[cfg(feature = "serde")]
+pub use serializer::YamlSerializer;
+#[cfg(feature = "serde")]
+pub use deserializer::YamlDeserializer;
 
 use crate::path::Condition;
 use crate::utils::indent;
@@ -470,6 +478,45 @@ pub trait Pretty {
     fn pretty(self) -> Self;
 }
 
+/// Apply a closure bottom-up to every [`Yaml`] node (children first, then the
+/// current node). Implement this trait on container types to enable recursive
+/// rewrites without manual match arms for every variant.
+pub trait MapYaml {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self;
+}
+
+impl<T: MapYaml> MapYaml for Vec<T> {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
+        self.into_iter().map(|x| x.map_yaml(f)).collect()
+    }
+}
+
+impl MapYaml for Yaml {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Yaml {
+        let descended = match self {
+            Yaml::Hash(data) => Yaml::Hash(data.map_yaml(f)),
+            Yaml::InlineHash(data) => Yaml::InlineHash(
+                data.into_iter().map(|(k, v)| (k, v.map_yaml(f))).collect(),
+            ),
+            Yaml::Array(data) => Yaml::Array(data.map_yaml(f)),
+            Yaml::InlineArray(data) => Yaml::InlineArray(data.map_yaml(f)),
+            leaf => leaf,
+        };
+        f(descended)
+    }
+}
+
+fn is_inlineable(yaml: &Yaml) -> bool {
+    matches!(
+        yaml,
+        Yaml::UnquotedString(_)
+            | Yaml::DoubleQuotedString(_)
+            | Yaml::SingleQuotedString(_)
+            | Yaml::InlineArray(_)
+            | Yaml::InlineHash(_)
+    )
+}
+
 impl<T: Pretty> Pretty for Vec<T> {
     fn pretty(self) -> Self {
         self.into_iter().map(|x| x.pretty()).collect()
@@ -488,13 +535,35 @@ impl Pretty for Yaml {
                     Yaml::Hash(v.pretty())
                 }
             }
-            Yaml::InlineArray(v) => Yaml::InlineArray(v),
+            Yaml::InlineArray(v) => Yaml::InlineArray(v.pretty()),
             Yaml::Array(v) => {
                 if v.is_empty() {
-                    Yaml::InlineArray(Vec::new())
-                } else {
-                    Yaml::Array(v.pretty())
+                    return Yaml::InlineArray(Vec::new());
                 }
+                let prettied: Vec<ArrayData> = v.pretty();
+                // Auto-inline arrays whose elements are all scalars or already
+                // inline, provided the rendered line fits within the line limit.
+                let can_inline = prettied.iter().all(|d| match d {
+                    ArrayData::Element(e) => e.alias.is_none() && is_inlineable(&e.value),
+                    _ => false, // comments block inlining
+                });
+                if can_inline {
+                    let elems: Vec<Yaml> = prettied
+                        .iter()
+                        .filter_map(|d| match d {
+                            ArrayData::Element(e) => Some(e.value.clone()),
+                            _ => None,
+                        })
+                        .collect();
+                    let candidate = Yaml::InlineArray(elems.clone());
+                    let mut rendered = String::new();
+                    if candidate.format(&mut rendered, 0, None).is_ok()
+                        && rendered.len() <= max_line_length
+                    {
+                        return Yaml::InlineArray(elems);
+                    }
+                }
+                Yaml::Array(prettied)
             }
             Yaml::UnquotedString(s) => Yaml::UnquotedString(s),
             Yaml::DoubleQuotedString(parts) => {

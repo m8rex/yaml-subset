@@ -2,7 +2,7 @@ use super::insert::Additive;
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, HashElement, Yaml};
 use crate::path::Condition;
-use crate::yaml::Pretty;
+use crate::yaml::{MapYaml, Pretty};
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +50,15 @@ impl ArrayData {
         match self {
             ArrayData::Element(e) => e.fits_conditions(conditions),
             _ => false,
+        }
+    }
+}
+
+impl MapYaml for ArrayData {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
+        match self {
+            ArrayData::Element(e) => ArrayData::Element(e.map_yaml(f)),
+            other => other,
         }
     }
 }

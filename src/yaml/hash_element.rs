@@ -1,7 +1,7 @@
 use super::insert::Additive;
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, Yaml};
-use crate::yaml::Pretty;
+use crate::yaml::{MapYaml, Pretty};
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,6 +34,12 @@ impl YamlInsert for HashElement {
             YamlPath::Key(_key, _conditions, Some(other)) => self.value.for_hash(&*other, f, r),
             _ => A::zero(),
         }
+    }
+}
+
+impl MapYaml for HashElement {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
+        Self { key: self.key, value: self.value.map_yaml(f) }
     }
 }
 

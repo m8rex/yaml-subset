@@ -3,7 +3,7 @@ use super::YamlInsert;
 use super::YamlTypes;
 use super::{HashData, HashElement, Yaml};
 use crate::path::Condition;
-use crate::yaml::Pretty;
+use crate::yaml::{MapYaml, Pretty};
 use crate::YamlPath;
 use std::fmt::Write;
 
@@ -60,6 +60,12 @@ impl AliasedYaml {
         } else {
             self.value.format(f, spaces + 2, parent)
         }
+    }
+}
+
+impl MapYaml for AliasedYaml {
+    fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
+        Self { alias: self.alias, value: self.value.map_yaml(f) }
     }
 }
 
