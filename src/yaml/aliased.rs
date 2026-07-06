@@ -3,7 +3,7 @@ use super::YamlInsert;
 use super::YamlTypes;
 use super::{HashData, HashElement, Yaml};
 use crate::path::Condition;
-use crate::yaml::{MapYaml, Pretty};
+use crate::yaml::{MapYaml, Pretty, VisitYaml};
 use crate::YamlPath;
 use std::fmt::Write;
 
@@ -63,6 +63,13 @@ impl AliasedYaml {
     }
 }
 
+impl VisitYaml for AliasedYaml {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F) {
+        f(self);
+        self.value.visit_yaml(f);
+    }
+}
+
 impl MapYaml for AliasedYaml {
     fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
         Self { alias: self.alias, value: self.value.map_yaml(f) }
@@ -70,10 +77,10 @@ impl MapYaml for AliasedYaml {
 }
 
 impl Pretty for AliasedYaml {
-    fn pretty(self) -> Self {
+    fn pretty_with_options(self, in_inline: bool) -> Self {
         Self {
             alias: self.alias,
-            value: self.value.pretty(),
+            value: self.value.pretty_with_options(in_inline),
         }
     }
 }

@@ -3,16 +3,17 @@ use super::BlockChomping;
 /// handle ending newlines for literal and folded strings
 fn handle_ending_newlines(s: String, chomping: BlockChomping) -> String {
     match chomping {
-        BlockChomping::Keep => s,
-        BlockChomping::Clip => {
-            let ends_with_newline = s.ends_with("\n");
-            let mut result = s.trim_end_matches("\n").to_string();
-            if ends_with_newline {
-                result.push_str("\n");
-            }
+        BlockChomping::Keep => {
+            let mut result = s;
+            result.push('\n');
             result
         }
-        BlockChomping::Strip => s.trim_end_matches("\n").to_string(),
+        BlockChomping::Clip => {
+            let mut result = s.trim_end_matches('\n').to_string();
+            result.push('\n');
+            result
+        }
+        BlockChomping::Strip => s.trim_end_matches('\n').to_string(),
     }
 }
 
@@ -22,10 +23,17 @@ pub fn parse_literal(lines: Vec<&str>, chomping: BlockChomping) -> String {
     handle_ending_newlines(s, chomping)
 }
 
-// Create literal string for string
+// Create literal string for string.
+// Strips the trailing "" that split("\n") produces for strings ending with \n,
+// because Keep chomping adds that \n back during deserialization.
 pub fn create_literal(s: String) -> Vec<String> {
-    let lines = s.trim_start_matches(" ").split("\n");
-    lines.map(|x| x.to_string()).collect()
+    let mut lines: Vec<String> = s.trim_start_matches(' ').split('\n').map(str::to_string).collect();
+    if s.ends_with('\n') {
+        if lines.last().map(|l| l.is_empty()).unwrap_or(false) {
+            lines.pop();
+        }
+    }
+    lines
 }
 
 /// Parse folded string to string
@@ -87,16 +95,25 @@ fn split_on_length(input: String, length: usize) -> Vec<String> {
     result
 }
 
-// Create folded string for string
+// Create folded string for string.
+// Strips two trailing ""s that the chain([""])  pattern adds for strings ending
+// with \n: one for the paragraph-break after the last wrapped line, and one for
+// the empty split result of the trailing \n.  Keep chomping adds the \n back.
 pub fn create_folded(s: String, line_length: usize) -> Vec<String> {
-    let lines = s.split("\n"); // TODO
-    lines
+    let ends_with_newline = s.ends_with('\n');
+    let mut lines: Vec<String> = s
+        .split('\n')
         .flat_map(|x| {
             split_on_length(x.to_string(), line_length)
                 .into_iter()
-                .chain(vec!["".to_string()].into_iter())
+                .chain(std::iter::once(String::new()))
         })
-        .collect()
+        .collect();
+    if ends_with_newline {
+        if lines.last().map(|l| l.is_empty()).unwrap_or(false) { lines.pop(); }
+        if lines.last().map(|l| l.is_empty()).unwrap_or(false) { lines.pop(); }
+    }
+    lines
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -267,8 +284,6 @@ on the next line, plus another line at the end.
                 "",
                 "on the next line, plus another line at",
                 "the end.",
-                "",
-                "",
             ]
         )
     }
@@ -301,7 +316,8 @@ plus another line at the end.
             result
         );
         let result = format!(" {}", result); // add leading space as test
-        input.pop(); // Remove extra one
+        input.pop(); // Remove extra two (trailing \n was stripped from create_literal output)
+        input.pop();
         assert_eq!(input, super::create_literal(result))
     }
 

@@ -4,7 +4,10 @@ use serde::Deserialize;
 use super::string::{
     parse_double_quoted_string, parse_folded, parse_literal, parse_single_quoted_string,
 };
-use super::{ArrayData, HashData, Yaml};
+use super::{AliasedYaml, ArrayData, HashData, Yaml};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 // ─── Error ───────────────────────────────────────────────────────────────────
 
@@ -40,7 +43,62 @@ fn yaml_to_string(yaml: &Yaml) -> Option<String> {
             *chomping,
         )),
         Yaml::SingleQuotedString(parts) => Some(parse_single_quoted_string(parts)),
-        _ => None,
+        Yaml::InlineHash(_)
+        | Yaml::Hash(_)
+        | Yaml::InlineArray(_)
+        | Yaml::Array(_)
+        | Yaml::Anchor(_) => None,
+    }
+}
+
+type Anchors = Rc<RefCell<HashMap<String, Yaml>>>;
+
+fn register(anchors: &Anchors, aliased: &AliasedYaml) {
+    if let Some(name) = &aliased.alias {
+        anchors.borrow_mut().insert(name.clone(), aliased.value.clone());
+    }
+}
+
+fn resolve(anchors: &Anchors, name: &str) -> Result<Yaml, YamlDeserializeError> {
+    anchors
+        .borrow()
+        .get(name)
+        .cloned()
+        .ok_or_else(|| YamlDeserializeError(format!("undefined anchor: {name}")))
+}
+
+fn hash_entries(anchors: &Anchors, data: Vec<HashData>) -> Vec<(String, Yaml)> {
+    data.into_iter()
+        .filter_map(|d| match d {
+            HashData::Element(e) => {
+                register(anchors, &e.value);
+                Some((e.key, e.value.value))
+            }
+            HashData::InlineComment(_) | HashData::Comment(_) => None,
+        })
+        .collect()
+}
+
+fn seq_values(anchors: &Anchors, elements: Vec<ArrayData>) -> Vec<Yaml> {
+    elements
+        .into_iter()
+        .filter_map(|d| match d {
+            ArrayData::Element(e) => {
+                register(anchors, &e);
+                Some(e.value)
+            }
+            ArrayData::InlineComment(_) | ArrayData::Comment(_) => None,
+        })
+        .collect()
+}
+
+fn into_resolved(yaml: Yaml, anchors: Anchors) -> Result<(Yaml, Anchors), YamlDeserializeError> {
+    match yaml {
+        Yaml::Anchor(ref name) => {
+            let resolved = resolve(&anchors, name)?;
+            Ok((resolved, anchors))
+        }
+        other => Ok((other, anchors)),
     }
 }
 
@@ -48,11 +106,16 @@ fn yaml_to_string(yaml: &Yaml) -> Option<String> {
 
 pub struct YamlDeserializer {
     yaml: Yaml,
+    anchors: Anchors,
 }
 
 impl YamlDeserializer {
     pub fn new(yaml: Yaml) -> Self {
-        Self { yaml }
+        Self { yaml, anchors: Rc::new(RefCell::new(HashMap::new())) }
+    }
+
+    fn with(yaml: Yaml, anchors: Anchors) -> Self {
+        Self { yaml, anchors }
     }
 }
 
@@ -60,10 +123,25 @@ pub fn from_yaml<'de, T: Deserialize<'de>>(yaml: Yaml) -> Result<T, YamlDeserial
     T::deserialize(YamlDeserializer::new(yaml))
 }
 
+pub fn from_yaml_str<T: for<'de> Deserialize<'de>>(s: &str) -> Result<T, YamlDeserializeError> {
+    use super::{parse_yaml_file, DocumentData};
+    let doc = parse_yaml_file(s).map_err(|e| YamlDeserializeError(format!("{e}")))?;
+    let yaml = doc
+        .items
+        .into_iter()
+        .find_map(|item| match item {
+            DocumentData::Yaml(y) => Some(y),
+            _ => None,
+        })
+        .ok_or_else(|| YamlDeserializeError("no YAML content in document".to_string()))?;
+    from_yaml(yaml)
+}
+
 impl<'de> de::Deserializer<'de> for YamlDeserializer {
     type Error = YamlDeserializeError;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let anchors = self.anchors;
         match self.yaml {
             Yaml::UnquotedString(s) => {
                 // null
@@ -106,35 +184,25 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
                 visitor.visit_string(parse_single_quoted_string(parts))
             }
             Yaml::Array(elements) => {
-                let values: Vec<Yaml> = elements
-                    .into_iter()
-                    .filter_map(|d| match d {
-                        ArrayData::Element(e) => Some(e.value),
-                        _ => None,
-                    })
-                    .collect();
-                visitor.visit_seq(VecSeqAccess::new(values))
+                let values = seq_values(&anchors, elements);
+                visitor.visit_seq(VecSeqAccess::new(values, anchors))
             }
-            Yaml::InlineArray(elements) => visitor.visit_seq(VecSeqAccess::new(elements)),
+            Yaml::InlineArray(elements) => visitor.visit_seq(VecSeqAccess::new(elements, anchors)),
             Yaml::Hash(data) => {
-                let entries: Vec<(String, Yaml)> = data
-                    .into_iter()
-                    .filter_map(|d| match d {
-                        HashData::Element(e) => Some((e.key, e.value.value)),
-                        _ => None,
-                    })
-                    .collect();
-                visitor.visit_map(VecMapAccess::new(entries))
+                let entries = hash_entries(&anchors, data);
+                visitor.visit_map(VecMapAccess::new(entries, anchors))
             }
-            Yaml::InlineHash(data) => visitor.visit_map(VecMapAccess::new(data)),
-            Yaml::Anchor(_) => Err(YamlDeserializeError(
-                "anchor references require document-level resolution".to_string(),
-            )),
+            Yaml::InlineHash(data) => visitor.visit_map(VecMapAccess::new(data, anchors)),
+            Yaml::Anchor(name) => {
+                let resolved = resolve(&anchors, &name)?;
+                YamlDeserializer::with(resolved, anchors).deserialize_any(visitor)
+            }
         }
     }
 
     fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match self.yaml {
+        let (yaml, _) = into_resolved(self.yaml, self.anchors)?;
+        match yaml {
             Yaml::UnquotedString(ref s) => match s.as_str() {
                 "true" | "True" | "TRUE" | "yes" | "Yes" | "YES" | "on" | "On" | "ON" => {
                     visitor.visit_bool(true)
@@ -158,7 +226,8 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
         self.deserialize_i64(visitor)
     }
     fn deserialize_i64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        if let Some(s) = yaml_to_string(&self.yaml) {
+        let (yaml, _) = into_resolved(self.yaml, self.anchors)?;
+        if let Some(s) = yaml_to_string(&yaml) {
             s.parse::<i64>()
                 .map_err(|e| Self::Error::custom(e))
                 .and_then(|v| visitor.visit_i64(v))
@@ -176,7 +245,8 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
         self.deserialize_u64(visitor)
     }
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        if let Some(s) = yaml_to_string(&self.yaml) {
+        let (yaml, _) = into_resolved(self.yaml, self.anchors)?;
+        if let Some(s) = yaml_to_string(&yaml) {
             s.parse::<u64>()
                 .map_err(|e| Self::Error::custom(e))
                 .and_then(|v| visitor.visit_u64(v))
@@ -188,7 +258,8 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
         self.deserialize_f64(visitor)
     }
     fn deserialize_f64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        if let Some(s) = yaml_to_string(&self.yaml) {
+        let (yaml, _) = into_resolved(self.yaml, self.anchors)?;
+        if let Some(s) = yaml_to_string(&yaml) {
             s.parse::<f64>()
                 .map_err(|e| Self::Error::custom(e))
                 .and_then(|v| visitor.visit_f64(v))
@@ -200,7 +271,8 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
         self.deserialize_str(visitor)
     }
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        if let Some(s) = yaml_to_string(&self.yaml) {
+        let (yaml, _) = into_resolved(self.yaml, self.anchors)?;
+        if let Some(s) = yaml_to_string(&yaml) {
             visitor.visit_string(s)
         } else {
             Err(Self::Error::custom("expected string"))
@@ -217,11 +289,12 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
     }
 
     fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match &self.yaml {
+        let (yaml, anchors) = into_resolved(self.yaml, self.anchors)?;
+        match &yaml {
             Yaml::UnquotedString(s) if matches!(s.as_str(), "~" | "null" | "Null" | "NULL") => {
                 visitor.visit_none()
             }
-            _ => visitor.visit_some(self),
+            _ => visitor.visit_some(YamlDeserializer::with(yaml, anchors)),
         }
     }
 
@@ -245,18 +318,13 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
     }
 
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match self.yaml {
+        let (yaml, anchors) = into_resolved(self.yaml, self.anchors)?;
+        match yaml {
             Yaml::Array(elements) => {
-                let values: Vec<Yaml> = elements
-                    .into_iter()
-                    .filter_map(|d| match d {
-                        ArrayData::Element(e) => Some(e.value),
-                        _ => None,
-                    })
-                    .collect();
-                visitor.visit_seq(VecSeqAccess::new(values))
+                let values = seq_values(&anchors, elements);
+                visitor.visit_seq(VecSeqAccess::new(values, anchors))
             }
-            Yaml::InlineArray(elements) => visitor.visit_seq(VecSeqAccess::new(elements)),
+            Yaml::InlineArray(elements) => visitor.visit_seq(VecSeqAccess::new(elements, anchors)),
             _ => Err(Self::Error::custom("expected sequence")),
         }
     }
@@ -279,18 +347,13 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
     }
 
     fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match self.yaml {
+        let (yaml, anchors) = into_resolved(self.yaml, self.anchors)?;
+        match yaml {
             Yaml::Hash(data) => {
-                let entries: Vec<(String, Yaml)> = data
-                    .into_iter()
-                    .filter_map(|d| match d {
-                        HashData::Element(e) => Some((e.key, e.value.value)),
-                        _ => None,
-                    })
-                    .collect();
-                visitor.visit_map(VecMapAccess::new(entries))
+                let entries = hash_entries(&anchors, data);
+                visitor.visit_map(VecMapAccess::new(entries, anchors))
             }
-            Yaml::InlineHash(data) => visitor.visit_map(VecMapAccess::new(data)),
+            Yaml::InlineHash(data) => visitor.visit_map(VecMapAccess::new(data, anchors)),
             _ => Err(Self::Error::custom("expected map")),
         }
     }
@@ -310,7 +373,8 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
         _variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        match self.yaml {
+        let (yaml, anchors) = into_resolved(self.yaml, self.anchors)?;
+        match yaml {
             // Unit variant: the yaml value is a string matching the variant name.
             // UnquotedString covers "True", "False", and bare identifiers.
             ref y @ (Yaml::UnquotedString(_)
@@ -323,21 +387,16 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
                 visitor.visit_enum(StrEnumAccess {
                     variant: s,
                     value: Yaml::UnquotedString("~".to_string()),
+                    anchors,
                 })
             }
             // Newtype / tuple / struct variant: single-key map where the key is
             // the variant name and the value is the variant's content.
             Yaml::Hash(data) => {
-                let mut entries: Vec<(String, Yaml)> = data
-                    .into_iter()
-                    .filter_map(|d| match d {
-                        HashData::Element(e) => Some((e.key, e.value.value)),
-                        _ => None,
-                    })
-                    .collect();
+                let mut entries = hash_entries(&anchors, data);
                 if entries.len() == 1 {
                     let (variant, value) = entries.remove(0);
-                    visitor.visit_enum(StrEnumAccess { variant, value })
+                    visitor.visit_enum(StrEnumAccess { variant, value, anchors })
                 } else {
                     Err(Self::Error::custom(
                         "expected single-key map for tagged enum variant",
@@ -347,14 +406,16 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
             Yaml::InlineHash(mut data) => {
                 if data.len() == 1 {
                     let (variant, value) = data.remove(0);
-                    visitor.visit_enum(StrEnumAccess { variant, value })
+                    visitor.visit_enum(StrEnumAccess { variant, value, anchors })
                 } else {
                     Err(Self::Error::custom(
                         "expected single-key inline hash for tagged enum variant",
                     ))
                 }
             }
-            _ => Err(Self::Error::custom("expected string or map for enum")),
+            Yaml::InlineArray(_) | Yaml::Array(_) | Yaml::Anchor(_) => {
+                Err(Self::Error::custom("expected string or map for enum"))
+            }
         }
     }
 
@@ -371,11 +432,12 @@ impl<'de> de::Deserializer<'de> for YamlDeserializer {
 
 struct VecSeqAccess {
     iter: std::vec::IntoIter<Yaml>,
+    anchors: Anchors,
 }
 
 impl VecSeqAccess {
-    fn new(v: Vec<Yaml>) -> Self {
-        Self { iter: v.into_iter() }
+    fn new(v: Vec<Yaml>, anchors: Anchors) -> Self {
+        Self { iter: v.into_iter(), anchors }
     }
 }
 
@@ -387,7 +449,7 @@ impl<'de> SeqAccess<'de> for VecSeqAccess {
         seed: T,
     ) -> Result<Option<T::Value>, Self::Error> {
         match self.iter.next() {
-            Some(yaml) => seed.deserialize(YamlDeserializer::new(yaml)).map(Some),
+            Some(yaml) => seed.deserialize(YamlDeserializer::with(yaml, Rc::clone(&self.anchors))).map(Some),
             None => Ok(None),
         }
     }
@@ -398,13 +460,15 @@ impl<'de> SeqAccess<'de> for VecSeqAccess {
 struct VecMapAccess {
     iter: std::vec::IntoIter<(String, Yaml)>,
     pending_value: Option<Yaml>,
+    anchors: Anchors,
 }
 
 impl VecMapAccess {
-    fn new(v: Vec<(String, Yaml)>) -> Self {
+    fn new(v: Vec<(String, Yaml)>, anchors: Anchors) -> Self {
         Self {
             iter: v.into_iter(),
             pending_value: None,
+            anchors,
         }
     }
 }
@@ -419,7 +483,7 @@ impl<'de> MapAccess<'de> for VecMapAccess {
         match self.iter.next() {
             Some((k, v)) => {
                 self.pending_value = Some(v);
-                seed.deserialize(YamlDeserializer::new(Yaml::UnquotedString(k)))
+                seed.deserialize(YamlDeserializer::with(Yaml::UnquotedString(k), Rc::clone(&self.anchors)))
                     .map(Some)
             }
             None => Ok(None),
@@ -434,7 +498,7 @@ impl<'de> MapAccess<'de> for VecMapAccess {
             .pending_value
             .take()
             .expect("next_value_seed called without next_key_seed");
-        seed.deserialize(YamlDeserializer::new(v))
+        seed.deserialize(YamlDeserializer::with(v, Rc::clone(&self.anchors)))
     }
 }
 
@@ -443,6 +507,7 @@ impl<'de> MapAccess<'de> for VecMapAccess {
 struct StrEnumAccess {
     variant: String,
     value: Yaml,
+    anchors: Anchors,
 }
 
 impl<'de> EnumAccess<'de> for StrEnumAccess {
@@ -453,9 +518,11 @@ impl<'de> EnumAccess<'de> for StrEnumAccess {
         self,
         seed: V,
     ) -> Result<(V::Value, YamlDeserializer), Self::Error> {
-        let variant =
-            seed.deserialize(YamlDeserializer::new(Yaml::UnquotedString(self.variant)))?;
-        Ok((variant, YamlDeserializer::new(self.value)))
+        let variant = seed.deserialize(YamlDeserializer::with(
+            Yaml::UnquotedString(self.variant),
+            Rc::clone(&self.anchors),
+        ))?;
+        Ok((variant, YamlDeserializer::with(self.value, self.anchors)))
     }
 }
 
@@ -823,5 +890,167 @@ mod tests {
             ]),
             "FnCallData::Normal should be a 3-element InlineArray"
         );
+    }
+
+    // ── Anchors ───────────────────────────────────────────────────────────────
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct ChooseOne {
+        options: Vec<String>,
+        solution: String,
+    }
+
+    #[test]
+    fn anchor_in_array_resolved_by_alias() {
+        let yaml_str = "---
+options:
+  - &correct answer_a
+  - answer_b
+solution: *correct
+";
+        let result: ChooseOne = from_yaml_str(yaml_str).unwrap();
+        assert_eq!(result.solution, "answer_a");
+        assert_eq!(result.options, vec!["answer_a", "answer_b"]);
+    }
+
+    #[test]
+    fn undefined_anchor_returns_err() {
+        let yaml_str = "---
+solution: *missing
+options: []";
+        let result = from_yaml_str::<ChooseOne>(yaml_str);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().0.contains("undefined anchor"));
+    }
+
+    // ── flatten + untagged + internally-tagged ───────────────────────────────
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FlatMeta { id: u32 }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    #[serde(tag = "type", rename_all = "snake_case")]
+    enum FlatInner { Foo(FooData), Bar(BarData) }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FooData { x: u32 }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct BarData { y: String }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum FlatOuter { A(FlatInner), B(FlatBData) }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FlatBData { name: String }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct FlatItem {
+        metadata: FlatMeta,
+        #[serde(flatten)]
+        content: FlatOuter,
+    }
+
+    #[test]
+    fn literal_block_preserves_inner_indent() {
+        // Python code in literal blocks must preserve relative indentation and
+        // the Clip (|) chomping must add exactly one trailing newline.
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S { solution: String }
+        let yaml = "---
+solution: |
+  for i in range(5,21):
+    print(i)
+";
+        let result: S = from_yaml_str(yaml).unwrap();
+        assert_eq!(result.solution, "for i in range(5,21):\n  print(i)\n");
+    }
+
+    #[test]
+    fn literal_block_keep_preserves_trailing_newlines() {
+        // |+ must keep ALL trailing newlines (not just one).
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S { value: String }
+        let yaml = "---
+value: |+
+  hello
+
+";
+        let result: S = from_yaml_str(yaml).unwrap();
+        assert_eq!(result.value, "hello\n\n");
+    }
+
+    #[test]
+    fn literal_block_keep_multiple_trailing_blank_lines() {
+        // |+ with two trailing blank lines must keep both.
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S { value: String, next: String }
+        let yaml = "---
+value: |+
+  hello
+
+
+next: done
+";
+        let result: S = from_yaml_str(yaml).unwrap();
+        assert_eq!(result.value, "hello\n\n\n");
+        assert_eq!(result.next, "done");
+    }
+
+    #[test]
+    fn key_with_trailing_space_is_trimmed() {
+        // yaml_subset must trim trailing whitespace from block mapping keys
+        // so that "type : text" is treated the same as "type: text"
+        let yaml = "---
+type : foo
+x: 7
+";
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S { r#type: String, x: u32 }
+        let result: Result<S, _> = from_yaml_str(yaml);
+        assert_eq!(result.unwrap(), S { r#type: "foo".to_string(), x: 7 });
+    }
+
+    #[test]
+    fn flatten_untagged_internally_tagged() {
+        let yaml = "---
+metadata:
+  id: 42
+type: foo
+x: 7
+";
+        let result: Result<FlatItem, _> = from_yaml_str(yaml);
+        assert_eq!(
+            result.unwrap(),
+            FlatItem { metadata: FlatMeta { id: 42 }, content: FlatOuter::A(FlatInner::Foo(FooData { x: 7 })) }
+        );
+    }
+
+    // ── VisitYaml ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn visit_yaml_collects_anchors() {
+        use crate::yaml::{parse_yaml_file, DocumentData, VisitYaml};
+        let yaml_str = "---
+options:
+  - &correct answer_a
+  - &wrong answer_b
+solution: *correct
+";
+        let doc = parse_yaml_file(yaml_str).unwrap();
+        let yaml = doc.items.into_iter().find_map(|i| match i {
+            DocumentData::Yaml(y) => Some(y),
+            _ => None,
+        }).unwrap();
+
+        let mut names: Vec<String> = Vec::new();
+        yaml.visit_yaml(&mut |a: &crate::yaml::AliasedYaml| {
+            if let Some(name) = &a.alias {
+                names.push(name.clone());
+            }
+        });
+        names.sort();
+        assert_eq!(names, vec!["correct", "wrong"]);
     }
 }

@@ -8,7 +8,7 @@ datetime_rfc3339: "2025-03-26T09:48:35.393+01:00"
 type_with_data:
   Programming:
     content:
-      code: |+
+      code: |-
         import math
         def schuine_zijde(a,b):
           c = math.sqrt(a.a + b.b)

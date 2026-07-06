@@ -2,7 +2,7 @@ use super::insert::Additive;
 use super::YamlInsert;
 use super::{AliasedYaml, HashData, HashElement, Yaml};
 use crate::path::Condition;
-use crate::yaml::{MapYaml, Pretty};
+use crate::yaml::{MapYaml, Pretty, VisitYaml};
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,6 +54,14 @@ impl ArrayData {
     }
 }
 
+impl VisitYaml for ArrayData {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F) {
+        if let ArrayData::Element(e) = self {
+            e.visit_yaml(f);
+        }
+    }
+}
+
 impl MapYaml for ArrayData {
     fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
         match self {
@@ -64,9 +72,9 @@ impl MapYaml for ArrayData {
 }
 
 impl Pretty for ArrayData {
-    fn pretty(self) -> Self {
+    fn pretty_with_options(self, in_inline: bool) -> Self {
         match self {
-            ArrayData::Element(e) => ArrayData::Element(e.pretty()),
+            ArrayData::Element(e) => ArrayData::Element(e.pretty_with_options(in_inline)),
             o => o,
         }
     }

@@ -1,7 +1,7 @@
 use super::insert::Additive;
 use super::YamlInsert;
-use super::{HashElement, Yaml};
-use crate::yaml::{MapYaml, Pretty};
+use super::{AliasedYaml, HashElement, Yaml};
+use crate::yaml::{MapYaml, Pretty, VisitYaml};
 use crate::YamlPath;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +33,14 @@ impl YamlInsert for HashData {
     }
 }
 
+impl VisitYaml for HashData {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F) {
+        if let HashData::Element(e) = self {
+            e.value.visit_yaml(f);
+        }
+    }
+}
+
 impl MapYaml for HashData {
     fn map_yaml<F: FnMut(Yaml) -> Yaml>(self, f: &mut F) -> Self {
         match self {
@@ -43,9 +51,9 @@ impl MapYaml for HashData {
 }
 
 impl Pretty for HashData {
-    fn pretty(self) -> Self {
+    fn pretty_with_options(self, in_inline: bool) -> Self {
         match self {
-            HashData::Element(e) => HashData::Element(e.pretty()),
+            HashData::Element(e) => HashData::Element(e.pretty_with_options(in_inline)),
             o => o,
         }
     }

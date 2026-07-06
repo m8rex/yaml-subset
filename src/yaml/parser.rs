@@ -264,10 +264,18 @@ impl YamlParser {
         })
     }
 
+    fn string_multiline_trailing(input: Node) -> InternalYamlResult<Vec<String>> {
+        Ok(input.as_str().chars().filter(|c| *c == '\n').map(|_| String::new()).collect())
+    }
+
     fn string_multiline_content(input: Node) -> InternalYamlResult<Vec<String>> {
         match_nodes!(input.into_children();
-        [block_empty_lines(es), block_string(b), string_multiline_content_part(bs)..] => {
-            Ok(es.into_iter().chain(std::iter::once(b)).chain(bs.into_iter().flat_map(|x| x)).collect())
+        [block_empty_lines(es), block_string(b), string_multiline_content_part(bs).., string_multiline_trailing(trailing)] => {
+            Ok(es.into_iter()
+                .chain(std::iter::once(b))
+                .chain(bs.into_iter().flat_map(|x| x))
+                .chain(trailing)
+                .collect())
         })
     }
 
@@ -341,7 +349,7 @@ impl YamlParser {
     }
 
     fn hash_key(input: Node) -> InternalYamlResult<String> {
-        Ok(input.as_str().to_string())
+        Ok(input.as_str().trim_end().to_string())
     }
 
     fn hash_element(input: Node) -> InternalYamlResult<HashElement> {

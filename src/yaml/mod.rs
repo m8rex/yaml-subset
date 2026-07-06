@@ -24,7 +24,7 @@ pub use types::YamlTypes;
 #[cfg(feature = "serde")]
 pub use serializer::YamlSerializer;
 #[cfg(feature = "serde")]
-pub use deserializer::YamlDeserializer;
+pub use deserializer::{from_yaml, from_yaml_str, YamlDeserializer, YamlDeserializeError};
 
 use crate::path::Condition;
 use crate::utils::indent;
@@ -475,7 +475,13 @@ impl Yaml {
 }
 
 pub trait Pretty {
-    fn pretty(self) -> Self;
+    fn pretty_with_options(self, in_inline: bool) -> Self;
+    fn pretty(self) -> Self
+    where
+        Self: Sized,
+    {
+        self.pretty_with_options(false)
+    }
 }
 
 /// Apply a closure bottom-up to every [`Yaml`] node (children first, then the
@@ -506,6 +512,43 @@ impl MapYaml for Yaml {
     }
 }
 
+pub trait VisitYaml {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F);
+}
+
+impl<T: VisitYaml> VisitYaml for Vec<T> {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F) {
+        for item in self {
+            item.visit_yaml(f);
+        }
+    }
+}
+
+impl VisitYaml for Yaml {
+    fn visit_yaml<F: FnMut(&AliasedYaml)>(&self, f: &mut F) {
+        match self {
+            Yaml::Hash(data) => data.visit_yaml(f),
+            Yaml::InlineHash(data) => {
+                for (_, v) in data {
+                    v.visit_yaml(f);
+                }
+            }
+            Yaml::Array(data) => data.visit_yaml(f),
+            Yaml::InlineArray(data) => {
+                for v in data {
+                    v.visit_yaml(f);
+                }
+            }
+            Yaml::SingleQuotedString(_)
+            | Yaml::DoubleQuotedString(_)
+            | Yaml::UnquotedString(_)
+            | Yaml::FoldedString(_, _)
+            | Yaml::LiteralString(_, _)
+            | Yaml::Anchor(_) => {}
+        }
+    }
+}
+
 fn is_inlineable(yaml: &Yaml) -> bool {
     matches!(
         yaml,
@@ -518,29 +561,31 @@ fn is_inlineable(yaml: &Yaml) -> bool {
 }
 
 impl<T: Pretty> Pretty for Vec<T> {
-    fn pretty(self) -> Self {
-        self.into_iter().map(|x| x.pretty()).collect()
+    fn pretty_with_options(self, in_inline: bool) -> Self {
+        self.into_iter().map(|x| x.pretty_with_options(in_inline)).collect()
     }
 }
 
 impl Pretty for Yaml {
-    fn pretty(self) -> Yaml {
+    fn pretty_with_options(self, in_inline: bool) -> Yaml {
         let max_line_length = 90;
         match self {
-            Yaml::InlineHash(h) => Yaml::InlineHash(h),
+            Yaml::InlineHash(h) => Yaml::InlineHash(
+                h.into_iter().map(|(k, v)| (k, v.pretty_with_options(true))).collect(),
+            ),
             Yaml::Hash(v) => {
                 if v.is_empty() {
                     Yaml::InlineHash(Vec::new())
                 } else {
-                    Yaml::Hash(v.pretty())
+                    Yaml::Hash(v.pretty_with_options(false))
                 }
             }
-            Yaml::InlineArray(v) => Yaml::InlineArray(v.pretty()),
+            Yaml::InlineArray(v) => Yaml::InlineArray(v.pretty_with_options(true)),
             Yaml::Array(v) => {
                 if v.is_empty() {
                     return Yaml::InlineArray(Vec::new());
                 }
-                let prettied: Vec<ArrayData> = v.pretty();
+                let prettied: Vec<ArrayData> = v.pretty_with_options(false);
                 // Auto-inline arrays whose elements are all scalars or already
                 // inline, provided the rendered line fits within the line limit.
                 let can_inline = prettied.iter().all(|d| match d {
@@ -567,29 +612,37 @@ impl Pretty for Yaml {
             }
             Yaml::UnquotedString(s) => Yaml::UnquotedString(s),
             Yaml::DoubleQuotedString(parts) => {
+                if in_inline {
+                    return Yaml::DoubleQuotedString(parts);
+                }
                 let contains_escape = parts
                     .iter()
                     .any(|x| matches!(x, DoubleQuotedStringPart::EscapedChar(_)));
                 let s = parse_double_quoted_string(&parts);
                 let total_length = s.len();
+                let chomping = if s.ends_with('\n') { BlockChomping::Keep } else { BlockChomping::Strip };
                 if contains_escape {
-                    Yaml::LiteralString(create_literal(s), BlockChomping::Keep)
+                    Yaml::LiteralString(create_literal(s), chomping)
                 } else if total_length > max_line_length {
-                    Yaml::FoldedString(create_folded(s, max_line_length), BlockChomping::Keep)
+                    Yaml::FoldedString(create_folded(s, max_line_length), chomping)
                 } else {
                     Yaml::DoubleQuotedString(parts)
                 }
             }
             Yaml::SingleQuotedString(parts) => {
+                if in_inline {
+                    return Yaml::SingleQuotedString(parts);
+                }
                 let contains_newline = parts
                     .iter()
                     .any(|x| matches!(x, SingleQuotedStringPart::BlankLines(_)));
                 let s = parse_single_quoted_string(&parts);
                 let total_length = s.len();
+                let chomping = if s.ends_with('\n') { BlockChomping::Keep } else { BlockChomping::Strip };
                 if contains_newline {
-                    Yaml::LiteralString(create_literal(s), BlockChomping::Keep)
+                    Yaml::LiteralString(create_literal(s), chomping)
                 } else if total_length > max_line_length {
-                    Yaml::FoldedString(create_folded(s, max_line_length), BlockChomping::Keep)
+                    Yaml::FoldedString(create_folded(s, max_line_length), chomping)
                 } else {
                     Yaml::SingleQuotedString(parts)
                 }
