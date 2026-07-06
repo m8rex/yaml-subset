@@ -32,10 +32,16 @@ fn aliased(value: Yaml) -> AliasedYaml {
     AliasedYaml { alias: None, value }
 }
 
-// Returns true when a string cannot be written as a plain (unquoted) YAML scalar,
-// based on yaml_subset's grammar rules:
+// Returns true when a string cannot be written as a plain (unquoted) YAML scalar.
+// Rules based on yaml_subset's grammar:
 //   - start disallowed: [ ] { } " ' # > | newline
 //   - anywhere disallowed: ": " (colon-space), # , newlines
+// Also quotes strings that serde's untagged-enum Content mechanism misinterprets:
+// untagged enum deserialization calls deserialize_any to collect into Content, and
+// deserialize_any maps UnquotedString("2") → visit_i64(2) → Content::I64(2).
+// serde's ContentDeserializer::deserialize_string then fails on Content::I64 because
+// it has no integer-to-string coercion. Quoting ensures Content::String is produced
+// so Vec<String> fields next to integer fields in the same struct both work.
 fn needs_quoting(s: &str) -> bool {
     if s.is_empty() {
         return true;
@@ -47,7 +53,12 @@ fn needs_quoting(s: &str) -> bool {
         '[' | ']' | '{' | '}' | '"' | '\'' | '#' | '>' | '|' => return true,
         _ => {}
     }
-    s.contains(": ") || s.contains('#') || s.contains('\n') || s.contains('\r')
+    if s.contains(": ") || s.contains('#') || s.contains('\n') || s.contains('\r') {
+        return true;
+    }
+    s.parse::<i64>().is_ok()
+        || s.parse::<f64>().is_ok()
+        || matches!(s, "true" | "false" | "null" | "~")
 }
 
 // Returns the most readable Yaml scalar for a Rust string:
