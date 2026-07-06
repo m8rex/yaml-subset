@@ -33,10 +33,10 @@ impl YamlInsert for DocumentData {
 }
 
 impl Pretty for DocumentData {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, in_inline: bool, _child_of_array: bool) -> Self {
         match self {
             DocumentData::Comment(c) => DocumentData::Comment(c),
-            DocumentData::Yaml(c) => DocumentData::Yaml(c.pretty_with_options(in_inline)),
+            DocumentData::Yaml(c) => DocumentData::Yaml(c.pretty_with_options(in_inline, false)),
         }
     }
 }
@@ -90,10 +90,10 @@ impl Document {
 }
 
 impl Pretty for Document {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, _in_inline: bool, _child_of_array: bool) -> Self {
         Self {
             leading_comments: self.leading_comments,
-            items: self.items.pretty_with_options(in_inline),
+            items: self.items.pretty_with_options(false, false),
         }
     }
 }

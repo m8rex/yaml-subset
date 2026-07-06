@@ -1,7 +1,10 @@
 use serde::ser;
 use serde::Serialize;
 
-use super::string::{DoubleQuotedStringEscapedChar, DoubleQuotedStringPart};
+use super::string::{
+    DoubleQuotedStringEscapedChar, DoubleQuotedStringPart, SingleQuotedStringEscapedChar,
+    SingleQuotedStringPart,
+};
 use super::{AliasedYaml, ArrayData, HashData, HashElement, Yaml};
 
 // ─── Error ───────────────────────────────────────────────────────────────────
@@ -29,11 +32,79 @@ fn aliased(value: Yaml) -> AliasedYaml {
     AliasedYaml { alias: None, value }
 }
 
-// Build a DoubleQuotedString with proper EscapedChar nodes for \n, " and \.
-// pretty() will then convert any string that contains EscapedChar parts into
-// a LiteralString block, and long plain strings into FoldedString — callers
-// never need to decide the representation themselves.
+// Returns true when a string cannot be written as a plain (unquoted) YAML scalar,
+// based on yaml_subset's grammar rules:
+//   - start disallowed: [ ] { } " ' # > | newline
+//   - anywhere disallowed: ": " (colon-space), # , newlines
+fn needs_quoting(s: &str) -> bool {
+    if s.is_empty() {
+        return true;
+    }
+    if s.starts_with(' ') || s.ends_with(' ') {
+        return true;
+    }
+    match s.chars().next().unwrap() {
+        '[' | ']' | '{' | '}' | '"' | '\'' | '#' | '>' | '|' => return true,
+        _ => {}
+    }
+    s.contains(": ") || s.contains('#') || s.contains('\n') || s.contains('\r')
+}
+
+// Returns the most readable Yaml scalar for a Rust string:
+//   - UnquotedString when the grammar allows it (no special chars)
+//   - SingleQuotedString when quoting is needed but no newlines (clean, no escapes)
+//   - DoubleQuotedString with EscapedChar nodes for \n and \r, so that pretty()
+//     can convert them to a LiteralString block; long plain strings become FoldedString.
 fn str_to_yaml(s: &str) -> Yaml {
+    if !needs_quoting(s) {
+        return Yaml::UnquotedString(s.to_string());
+    }
+    if !s.contains('\n') && !s.contains('\r') {
+        // Prefer single quotes unless the string contains ' but no " — then double quotes
+        // avoid the '' doubling.
+        if s.contains('\'') && !s.contains('"') {
+            // Double-quoted: ' is fine unescaped, only \ needs escaping here.
+            let mut parts: Vec<DoubleQuotedStringPart> = Vec::new();
+            let mut buf = String::new();
+            for ch in s.chars() {
+                if ch == '\\' {
+                    if !buf.is_empty() {
+                        parts.push(DoubleQuotedStringPart::String(std::mem::take(&mut buf)));
+                    }
+                    parts.push(DoubleQuotedStringPart::EscapedChar(
+                        DoubleQuotedStringEscapedChar::Backslash,
+                    ));
+                } else {
+                    buf.push(ch);
+                }
+            }
+            if !buf.is_empty() {
+                parts.push(DoubleQuotedStringPart::String(buf));
+            }
+            return Yaml::DoubleQuotedString(parts);
+        }
+        // Single-quoted: handles ", \, and other special chars literally; ' is doubled.
+        let mut parts: Vec<SingleQuotedStringPart> = Vec::new();
+        let mut buf = String::new();
+        for ch in s.chars() {
+            if ch == '\'' {
+                if !buf.is_empty() {
+                    parts.push(SingleQuotedStringPart::String(std::mem::take(&mut buf)));
+                }
+                parts.push(SingleQuotedStringPart::EscapedChar(
+                    SingleQuotedStringEscapedChar::SingleQuote,
+                ));
+            } else {
+                buf.push(ch);
+            }
+        }
+        if !buf.is_empty() {
+            parts.push(SingleQuotedStringPart::String(buf));
+        }
+        return Yaml::SingleQuotedString(parts);
+    }
+    // Double-quoted with EscapedChar nodes for newlines (and " and \ within).
+    // pretty() converts EscapedChar-containing strings to LiteralString blocks.
     let mut parts: Vec<DoubleQuotedStringPart> = Vec::new();
     let mut buf = String::new();
     for ch in s.chars() {
@@ -44,6 +115,14 @@ fn str_to_yaml(s: &str) -> Yaml {
                 }
                 parts.push(DoubleQuotedStringPart::EscapedChar(
                     DoubleQuotedStringEscapedChar::Newline,
+                ));
+            }
+            '\r' => {
+                if !buf.is_empty() {
+                    parts.push(DoubleQuotedStringPart::String(std::mem::take(&mut buf)));
+                }
+                parts.push(DoubleQuotedStringPart::EscapedChar(
+                    DoubleQuotedStringEscapedChar::CarriageReturn,
                 ));
             }
             '"' => {

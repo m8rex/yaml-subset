@@ -72,9 +72,9 @@ impl MapYaml for ArrayData {
 }
 
 impl Pretty for ArrayData {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Self {
         match self {
-            ArrayData::Element(e) => ArrayData::Element(e.pretty_with_options(in_inline)),
+            ArrayData::Element(e) => ArrayData::Element(e.pretty_with_options(in_inline, child_of_array)),
             o => o,
         }
     }

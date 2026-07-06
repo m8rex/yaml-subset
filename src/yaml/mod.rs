@@ -475,12 +475,12 @@ impl Yaml {
 }
 
 pub trait Pretty {
-    fn pretty_with_options(self, in_inline: bool) -> Self;
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Self;
     fn pretty(self) -> Self
     where
         Self: Sized,
     {
-        self.pretty_with_options(false)
+        self.pretty_with_options(false, false)
     }
 }
 
@@ -561,51 +561,54 @@ fn is_inlineable(yaml: &Yaml) -> bool {
 }
 
 impl<T: Pretty> Pretty for Vec<T> {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
-        self.into_iter().map(|x| x.pretty_with_options(in_inline)).collect()
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Self {
+        self.into_iter().map(|x| x.pretty_with_options(in_inline, child_of_array)).collect()
     }
 }
 
 impl Pretty for Yaml {
-    fn pretty_with_options(self, in_inline: bool) -> Yaml {
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Yaml {
         let max_line_length = 90;
         match self {
             Yaml::InlineHash(h) => Yaml::InlineHash(
-                h.into_iter().map(|(k, v)| (k, v.pretty_with_options(true))).collect(),
+                h.into_iter().map(|(k, v)| (k, v.pretty_with_options(true, false))).collect(),
             ),
             Yaml::Hash(v) => {
                 if v.is_empty() {
                     Yaml::InlineHash(Vec::new())
                 } else {
-                    Yaml::Hash(v.pretty_with_options(false))
+                    Yaml::Hash(v.pretty_with_options(false, false))
                 }
             }
-            Yaml::InlineArray(v) => Yaml::InlineArray(v.pretty_with_options(true)),
+            Yaml::InlineArray(v) => Yaml::InlineArray(v.pretty_with_options(true, false)),
             Yaml::Array(v) => {
                 if v.is_empty() {
                     return Yaml::InlineArray(Vec::new());
                 }
-                let prettied: Vec<ArrayData> = v.pretty_with_options(false);
-                // Auto-inline arrays whose elements are all scalars or already
-                // inline, provided the rendered line fits within the line limit.
-                let can_inline = prettied.iter().all(|d| match d {
-                    ArrayData::Element(e) => e.alias.is_none() && is_inlineable(&e.value),
-                    _ => false, // comments block inlining
-                });
-                if can_inline {
-                    let elems: Vec<Yaml> = prettied
-                        .iter()
-                        .filter_map(|d| match d {
-                            ArrayData::Element(e) => Some(e.value.clone()),
-                            _ => None,
-                        })
-                        .collect();
-                    let candidate = Yaml::InlineArray(elems.clone());
-                    let mut rendered = String::new();
-                    if candidate.format(&mut rendered, 0, None).is_ok()
-                        && rendered.len() <= max_line_length
-                    {
-                        return Yaml::InlineArray(elems);
+                let prettied: Vec<ArrayData> = v.pretty_with_options(false, true);
+                // Auto-inline only when this array is a direct child of another array
+                // (block: child_of_array, or inline: in_inline).
+                // Arrays that are direct values in a hash stay block.
+                if child_of_array || in_inline {
+                    let can_inline = prettied.iter().all(|d| match d {
+                        ArrayData::Element(e) => e.alias.is_none() && is_inlineable(&e.value),
+                        _ => false,
+                    });
+                    if can_inline {
+                        let elems: Vec<Yaml> = prettied
+                            .iter()
+                            .filter_map(|d| match d {
+                                ArrayData::Element(e) => Some(e.value.clone()),
+                                _ => None,
+                            })
+                            .collect();
+                        let candidate = Yaml::InlineArray(elems.clone());
+                        let mut rendered = String::new();
+                        if candidate.format(&mut rendered, 0, None).is_ok()
+                            && rendered.len() <= max_line_length
+                        {
+                            return Yaml::InlineArray(elems);
+                        }
                     }
                 }
                 Yaml::Array(prettied)

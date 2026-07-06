@@ -77,10 +77,10 @@ impl MapYaml for AliasedYaml {
 }
 
 impl Pretty for AliasedYaml {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Self {
         Self {
             alias: self.alias,
-            value: self.value.pretty_with_options(in_inline),
+            value: self.value.pretty_with_options(in_inline, child_of_array),
         }
     }
 }

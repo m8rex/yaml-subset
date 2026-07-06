@@ -662,19 +662,19 @@ mod tests {
         round_trip_check(Vec::<i64>::new());
     }
     #[test]
-    fn vec_auto_inlines_when_short() {
+    fn vec_stays_block_as_top_level_value() {
         let yaml = vec![1i64, 2, 3]
             .serialize(YamlSerializer)
             .unwrap()
             .pretty();
         assert_eq!(
             yaml,
-            Yaml::InlineArray(vec![
-                Yaml::UnquotedString("1".to_string()),
-                Yaml::UnquotedString("2".to_string()),
-                Yaml::UnquotedString("3".to_string()),
+            Yaml::Array(vec![
+                ArrayData::Element(AliasedYaml { alias: None, value: Yaml::UnquotedString("1".to_string()) }),
+                ArrayData::Element(AliasedYaml { alias: None, value: Yaml::UnquotedString("2".to_string()) }),
+                ArrayData::Element(AliasedYaml { alias: None, value: Yaml::UnquotedString("3".to_string()) }),
             ]),
-            "short int vec should auto-inline"
+            "top-level vec should stay block"
         );
     }
     #[test]
@@ -700,9 +700,7 @@ mod tests {
         assert_eq!(
             yaml,
             Yaml::InlineArray(vec![
-                Yaml::DoubleQuotedString(vec![DoubleQuotedStringPart::String(
-                    "hello".to_string()
-                )]),
+                Yaml::UnquotedString("hello".to_string()),
                 Yaml::UnquotedString("42".to_string()),
             ])
         );
@@ -721,9 +719,7 @@ mod tests {
         assert_eq!(
             yaml,
             Yaml::InlineArray(vec![
-                Yaml::DoubleQuotedString(vec![DoubleQuotedStringPart::String(
-                    "is_even".to_string()
-                )]),
+                Yaml::UnquotedString("is_even".to_string()),
                 Yaml::InlineArray(vec![Yaml::UnquotedString("6".to_string())]),
                 Yaml::UnquotedString("true".to_string()),
             ]),
@@ -872,7 +868,7 @@ mod tests {
     }
 
     // Verify the YAML for Normal is a single inline array with the right content
-    // (not block-split, and PyBool::True becomes the double-quoted string "True").
+    // (not block-split, and PyBool::True serializes as the unquoted string "True").
     #[test]
     fn function_call_normal_is_inline() {
         let value = FnCallData::Normal("is_even".to_string(), vec![6], PyBool::True);
@@ -880,13 +876,9 @@ mod tests {
         assert_eq!(
             yaml,
             Yaml::InlineArray(vec![
-                Yaml::DoubleQuotedString(vec![DoubleQuotedStringPart::String(
-                    "is_even".to_string()
-                )]),
+                Yaml::UnquotedString("is_even".to_string()),
                 Yaml::InlineArray(vec![Yaml::UnquotedString("6".to_string())]),
-                Yaml::DoubleQuotedString(vec![DoubleQuotedStringPart::String(
-                    "True".to_string()
-                )]),
+                Yaml::UnquotedString("True".to_string()),
             ]),
             "FnCallData::Normal should be a 3-element InlineArray"
         );

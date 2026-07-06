@@ -50,10 +50,10 @@ impl MapYaml for HashElement {
 }
 
 impl Pretty for HashElement {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, in_inline: bool, _child_of_array: bool) -> Self {
         Self {
             key: self.key,
-            value: self.value.pretty_with_options(in_inline),
+            value: self.value.pretty_with_options(in_inline, false),
         }
     }
 }

@@ -51,9 +51,9 @@ impl MapYaml for HashData {
 }
 
 impl Pretty for HashData {
-    fn pretty_with_options(self, in_inline: bool) -> Self {
+    fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Self {
         match self {
-            HashData::Element(e) => HashData::Element(e.pretty_with_options(in_inline)),
+            HashData::Element(e) => HashData::Element(e.pretty_with_options(in_inline, child_of_array)),
             o => o,
         }
     }
