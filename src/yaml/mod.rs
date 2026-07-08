@@ -32,6 +32,7 @@ use crate::yaml::insert::Additive;
 use crate::yaml::string::parse_double_quoted_string;
 use crate::yaml::string::parse_single_quoted_string;
 use crate::yaml::string::{create_folded, create_literal};
+use crate::yaml::string::SingleQuotedStringEscapedChar;
 use crate::YamlPath;
 use std::fmt::Write;
 
@@ -566,6 +567,57 @@ impl<T: Pretty> Pretty for Vec<T> {
     }
 }
 
+// Returns true when a string can be written as a plain (unquoted) YAML scalar in block context.
+// Rules based on yaml_subset's grammar:
+//   - start disallowed: [ ] { } " ' # > | newline
+//   - anywhere disallowed: ": " (colon-space), # , newlines
+// Also rejects strings that serde's untagged-enum Content mechanism misinterprets:
+// untagged enum deserialization calls deserialize_any to collect into Content, and
+// deserialize_any maps UnquotedString("2") → visit_i64(2) → Content::I64(2).
+// serde's ContentDeserializer::deserialize_string then fails on Content::I64 because
+// it has no integer-to-string coercion. Quoting ensures Content::String is produced
+// so Vec<String> fields next to integer fields in the same struct both work.
+// Note: inline_breaking_chars must also be checked for inline (flow) context.
+fn can_be_unquoted_in_block(s: &str) -> bool {
+    if s.is_empty() || s.starts_with(' ') || s.ends_with(' ') {
+        return false;
+    }
+    match s.chars().next().unwrap() {
+        '[' | ']' | '{' | '}' | '"' | '\'' | '#' | '>' | '|' => return false,
+        _ => {}
+    }
+    if s.contains(": ") || s.contains('#') || s.contains('\n') || s.contains('\r') {
+        return false;
+    }
+    !s.parse::<i64>().is_ok() && !s.parse::<f64>().is_ok()
+        && !matches!(s, "true" | "false" | "null" | "~")
+}
+
+fn inline_breaking_chars(s: &str) -> bool {
+    s.contains(',') || s.contains('[') || s.contains(']')
+        || s.contains('{') || s.contains('}') || s.contains('"')
+        || s.contains('>') || s.contains('|')
+}
+
+fn str_to_single_quoted_parts(s: &str) -> Vec<SingleQuotedStringPart> {
+    let mut parts: Vec<SingleQuotedStringPart> = Vec::new();
+    let mut buf = String::new();
+    for ch in s.chars() {
+        if ch == '\'' {
+            if !buf.is_empty() {
+                parts.push(SingleQuotedStringPart::String(std::mem::take(&mut buf)));
+            }
+            parts.push(SingleQuotedStringPart::EscapedChar(SingleQuotedStringEscapedChar::SingleQuote));
+        } else {
+            buf.push(ch);
+        }
+    }
+    if !buf.is_empty() {
+        parts.push(SingleQuotedStringPart::String(buf));
+    }
+    parts
+}
+
 impl Pretty for Yaml {
     fn pretty_with_options(self, in_inline: bool, child_of_array: bool) -> Yaml {
         let max_line_length = 90;
@@ -576,6 +628,18 @@ impl Pretty for Yaml {
             Yaml::Hash(v) => {
                 if v.is_empty() {
                     Yaml::InlineHash(Vec::new())
+                } else if in_inline {
+                    // In flow context, convert to InlineHash (dropping block comments).
+                    let entries: Vec<(String, Yaml)> = v
+                        .into_iter()
+                        .filter_map(|d| match d {
+                            HashData::Element(e) => {
+                                Some((e.key, e.value.value.pretty_with_options(true, false)))
+                            }
+                            _ => None,
+                        })
+                        .collect();
+                    Yaml::InlineHash(entries)
                 } else {
                     Yaml::Hash(v.pretty_with_options(false, false))
                 }
@@ -585,11 +649,20 @@ impl Pretty for Yaml {
                 if v.is_empty() {
                     return Yaml::InlineArray(Vec::new());
                 }
+                if in_inline {
+                    // In flow context, must return InlineArray — process children inline too.
+                    let elements: Vec<Yaml> = v
+                        .into_iter()
+                        .filter_map(|d| match d {
+                            ArrayData::Element(e) => Some(e.value.pretty_with_options(true, false)),
+                            _ => None,
+                        })
+                        .collect();
+                    return Yaml::InlineArray(elements);
+                }
                 let prettied: Vec<ArrayData> = v.pretty_with_options(false, true);
-                // Auto-inline only when this array is a direct child of another array
-                // (block: child_of_array, or inline: in_inline).
-                // Arrays that are direct values in a hash stay block.
-                if child_of_array || in_inline {
+                // Auto-inline when this array is a direct child of another block array.
+                if child_of_array {
                     let can_inline = prettied.iter().all(|d| match d {
                         ArrayData::Element(e) => e.alias.is_none() && is_inlineable(&e.value),
                         _ => false,
@@ -613,7 +686,13 @@ impl Pretty for Yaml {
                 }
                 Yaml::Array(prettied)
             }
-            Yaml::UnquotedString(s) => Yaml::UnquotedString(s),
+            Yaml::UnquotedString(s) => {
+                if in_inline && inline_breaking_chars(&s) {
+                    Yaml::SingleQuotedString(str_to_single_quoted_parts(&s))
+                } else {
+                    Yaml::UnquotedString(s)
+                }
+            }
             Yaml::DoubleQuotedString(parts) => {
                 if in_inline {
                     return Yaml::DoubleQuotedString(parts);
@@ -633,9 +712,6 @@ impl Pretty for Yaml {
                 }
             }
             Yaml::SingleQuotedString(parts) => {
-                if in_inline {
-                    return Yaml::SingleQuotedString(parts);
-                }
                 let contains_newline = parts
                     .iter()
                     .any(|x| matches!(x, SingleQuotedStringPart::BlankLines(_)));
@@ -643,8 +719,15 @@ impl Pretty for Yaml {
                 let total_length = s.len();
                 let chomping = if s.ends_with('\n') { BlockChomping::Keep } else { BlockChomping::Strip };
                 if contains_newline {
-                    Yaml::LiteralString(create_literal(s), chomping)
-                } else if total_length > max_line_length {
+                    return Yaml::LiteralString(create_literal(s), chomping);
+                }
+                if !in_inline && can_be_unquoted_in_block(&s) && !inline_breaking_chars(&s) && total_length <= max_line_length {
+                    return Yaml::UnquotedString(s);
+                }
+                if in_inline {
+                    return Yaml::SingleQuotedString(parts);
+                }
+                if total_length > max_line_length {
                     Yaml::FoldedString(create_folded(s, max_line_length), chomping)
                 } else {
                     Yaml::SingleQuotedString(parts)

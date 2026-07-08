@@ -74,7 +74,8 @@ first_hash_element = { hash_element ~ comment? }
 hash_element_data = { blanknl ~ commentnls ~ PEEK ~ hash_element ~ comment? }
 hash = { NEWLINE? ~ commentnls ~ blank ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element  ~ (hash_element_data)* ~ DROP ~ commentnls }
 
-alternative_hash = { first_hash_element ~ blanknl ~ commentnls ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element ~ (hash_element_data)* ~ DROP ~ commentnls }
+alternative_hash_continuation = { blanknl ~ commentnls ~ &(PEEK ~ SPACE_SEPARATOR+) ~ PUSH(SPACE_SEPARATOR*) ~ first_hash_element ~ (hash_element_data)* ~ DROP }
+alternative_hash = { first_hash_element ~ alternative_hash_continuation? ~ commentnls }
 
 
 inline_hash_element = { hash_key ~ spaces ~ ":" ~ spaces ~ inline_array_value }

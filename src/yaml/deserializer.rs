@@ -1019,6 +1019,204 @@ x: 7
         );
     }
 
+    // Same as above but with NESTED flatten: the inner tagged variant's struct
+    // also has a #[serde(flatten)] field with its own internally-tagged enum,
+    // plus extra own fields (`points`) that must survive after the inner flatten.
+    // This mirrors ContentItemPart → ContentItemPartType::Input(Input) where
+    // Input has #[serde(flatten)] kind: InputKind.
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct NestedFlatItem {
+        meta: u32,
+        #[serde(flatten)]
+        content: NestedContent,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    #[serde(tag = "type", rename_all = "snake_case")]
+    enum NestedContent {
+        Input(NestedInput),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct NestedInput {
+        #[serde(flatten)]
+        kind: NestedKind,
+        points: i16,
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum NestedKind {
+        Expr(NestedExpr),
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct NestedExpr {
+        solution: i64,
+        feedback: Option<String>,
+    }
+
+    #[test]
+    fn nested_flatten_with_extra_fields() {
+        let yaml = "---
+meta: 1
+type: input
+kind: expr
+solution: 42
+points: 100
+";
+        let result: Result<NestedFlatItem, _> = from_yaml_str(yaml);
+        assert_eq!(
+            result.unwrap(),
+            NestedFlatItem {
+                meta: 1,
+                content: NestedContent::Input(NestedInput {
+                    kind: NestedKind::Expr(NestedExpr { solution: 42, feedback: None }),
+                    points: 100,
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn nested_flatten_with_explicit_none_and_extra_fields() {
+        // With an explicit null feedback, `points` must still be found.
+        let yaml = "---
+meta: 1
+type: input
+kind: expr
+solution: 42
+feedback: ~
+points: 100
+";
+        let result: Result<NestedFlatItem, _> = from_yaml_str(yaml);
+        assert_eq!(
+            result.unwrap(),
+            NestedFlatItem {
+                meta: 1,
+                content: NestedContent::Input(NestedInput {
+                    kind: NestedKind::Expr(NestedExpr { solution: 42, feedback: None }),
+                    points: 100,
+                })
+            }
+        );
+    }
+
+    // ── Literal block scalar with indent indicator (|2) round-trip ──────────
+    //
+    // A string whose content starts with spaces must round-trip correctly
+    // through serialize → pretty → format → parse. The |2 indicator is written
+    // when the first content line starts with a space; the extra indentation
+    // must be preserved, not stripped.
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct HasOutput {
+        expected_output: String,
+        points: i64,
+    }
+
+    #[test]
+    fn literal_block_with_leading_spaces_round_trips() {
+        // This string starts with spaces — it requires |2 when written as a
+        // YAML literal block so that the leading spaces are preserved.
+        let original = HasOutput {
+            expected_output: "   September 2021\n Mo Tu We Th Fr Sa Su\n".to_string(),
+            points: 5,
+        };
+        let roundtripped: HasOutput = round_trip(&original);
+        assert_eq!(roundtripped, original, "leading spaces in literal block must survive a round-trip");
+    }
+
+    #[test]
+    fn literal_block_sibling_field_not_stolen_by_block_value() {
+        // `points` must be at the outer hash level even when `expected_output`
+        // is a |2 block scalar whose content has leading spaces.
+        let yaml = "---
+expected_output: |2
+     leading spaces here
+points: 42
+";
+        let result: Result<HasOutput, _> = from_yaml_str(yaml);
+        let h = result.expect("points must be parseable alongside a |2 block scalar");
+        assert_eq!(h.points, 42);
+        assert_eq!(h.expected_output, "   leading spaces here\n");
+    }
+
+    // ── Block-sequence indentation regression ────────────────────────────────
+    //
+    // A list item that is a single-key mapping whose value is itself a nested
+    // block sequence (e.g. `tuple_items: [...]`) must NOT consume sibling keys
+    // from the *outer* mapping that follow at a lower indent level.
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct TupleWrapper {
+        tuple_items: Vec<TupleItemValue>,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(untagged)]
+    enum TupleItemValue {
+        Nested(TupleWrapper),
+        Int(i64),
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct OuterExpr {
+        solution: TupleWrapper,
+        points: i64,
+    }
+
+    #[test]
+    fn single_key_list_item_does_not_steal_outer_sibling() {
+        // The second element of `tuple_items` is a mapping with ONE key whose
+        // value is a nested array. The `points` key belongs to the outer hash
+        // (OuterExpr), NOT to the inner list element's mapping.
+        let yaml = "---
+solution:
+  tuple_items:
+    - 10
+    - tuple_items:
+        - 8
+        - 5
+points: 99
+";
+        let result: Result<OuterExpr, _> = from_yaml_str(yaml);
+        let outer = result.expect("points must be parsed at the outer level, not nested inside tuple_items");
+        assert_eq!(outer.points, 99);
+        assert_eq!(outer.solution.tuple_items.len(), 2);
+        match &outer.solution.tuple_items[1] {
+            TupleItemValue::Nested(inner) => {
+                assert_eq!(inner.tuple_items.len(), 2);
+            }
+            TupleItemValue::Int(_) => panic!("expected nested TupleWrapper"),
+        }
+    }
+
+    #[test]
+    fn multi_key_list_item_still_works() {
+        // Ensure alternative_hash_continuation still works when there ARE
+        // valid continuation keys (indented more than the parent dash).
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct TwoKeys {
+            a: i64,
+            b: i64,
+        }
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct Container {
+            items: Vec<TwoKeys>,
+        }
+        let yaml = "---
+items:
+  - a: 1
+    b: 2
+  - a: 3
+    b: 4
+";
+        let result: Result<Container, _> = from_yaml_str(yaml);
+        let c = result.expect("two-key list items must still parse correctly");
+        assert_eq!(c.items, vec![TwoKeys { a: 1, b: 2 }, TwoKeys { a: 3, b: 4 }]);
+    }
+
     // ── VisitYaml ────────────────────────────────────────────────────────────
 
     #[test]

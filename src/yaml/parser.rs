@@ -401,15 +401,31 @@ impl YamlParser {
         )
     }
 
+    fn alternative_hash_continuation(input: Node) -> InternalYamlResult<Vec<HashData>> {
+        match_nodes!(input.into_children();
+            [commentnls(cs), first_hash_element(element), hash_element_data(elements)..] => Ok(
+                cs.into_iter().map(|c| HashData::Comment(c))
+                .chain(element.into_iter())
+                .chain(elements.into_iter().flatten())
+                .collect()
+            ),
+        )
+    }
+
     fn alternative_hash(input: Node) -> InternalYamlResult<Yaml> {
         match_nodes!(input.into_children();
-            [first_hash_element(element1), commentnls(cs), first_hash_element(element2), hash_element_data(elements).., commentnls(cs2)] => Ok(
+            [first_hash_element(element1), alternative_hash_continuation(cont), commentnls(cs)] => Ok(
+                Yaml::Hash(
+                    element1.into_iter()
+                    .chain(cont.into_iter())
+                    .chain(cs.into_iter().map(|c| HashData::Comment(c)))
+                    .collect()
+                )
+            ),
+            [first_hash_element(element1), commentnls(cs)] => Ok(
                 Yaml::Hash(
                     element1.into_iter()
                     .chain(cs.into_iter().map(|c| HashData::Comment(c)))
-                    .chain(element2.into_iter())
-                    .chain(elements.into_iter().flatten())
-                    .chain(cs2.into_iter().map(|c| HashData::Comment(c)))
                     .collect()
                 )
             ),

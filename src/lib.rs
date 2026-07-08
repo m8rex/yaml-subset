@@ -936,4 +936,144 @@ type_with_data:
         insta::assert_debug_snapshot!(parsed);
         insta::assert_display_snapshot!(parsed.unwrap().pretty().format().unwrap());
     }
+
+    // Single-quoted string that is safe to write unquoted in block context → becomes unquoted.
+    #[test]
+    fn pretty_dequotes_single_quoted_in_block() {
+        let inp = "---\nk: 'hello world'\n";
+        let pretty = parse_yaml_file(inp).unwrap().pretty().format().unwrap();
+        assert_eq!("---\nk: hello world", pretty);
+    }
+
+    // Single-quoted string with a comma stays quoted in block context (comma is an inline-breaking
+    // char so it must stay quoted to survive inside inline arrays).
+    #[test]
+    fn pretty_keeps_quotes_for_comma_in_block() {
+        let inp = "---\nk: 'a, b'\n";
+        let pretty = parse_yaml_file(inp).unwrap().pretty().format().unwrap();
+        assert_eq!("---\nk: 'a, b'", pretty);
+    }
+
+    // A single-quoted string that is too long (>90 chars) AND contains a comma must be folded,
+    // not left as a long quoted line.
+    #[test]
+    fn pretty_folds_long_single_quoted_with_comma() {
+        let long = "a, ".repeat(35); // "a, a, a, …" — has commas, > 90 chars
+        let inp = format!("---\nk: '{}'\n", long.trim_end_matches(", "));
+        let pretty = parse_yaml_file(&inp).unwrap().pretty().format().unwrap();
+        assert!(pretty.contains(">-") || pretty.contains("|-"), "expected folded/literal block scalar, got:\n{}", pretty);
+    }
+
+    // A long single-quoted string without inline-breaking chars must also be folded.
+    #[test]
+    fn pretty_folds_long_single_quoted_no_breaking_chars() {
+        let long = "word ".repeat(25); // > 90 chars, no commas/braces
+        let inp = format!("---\nk: '{}'\n", long.trim_end());
+        let pretty = parse_yaml_file(&inp).unwrap().pretty().format().unwrap();
+        assert!(pretty.contains(">-") || pretty.contains("|-") || pretty.contains(">"), "expected folded/literal block scalar, got:\n{}", pretty);
+    }
+
+    // An unquoted string that contains a brace (inline-breaking) and appears inside an inline
+    // array must be single-quoted so the inline array stays parseable.
+    #[test]
+    fn pretty_requotes_brace_in_inline_array() {
+        // After round-tripping through the serializer the string may arrive as UnquotedString;
+        // pretty() must re-quote it when it lands inside an inline array.
+        let inp = "---\nitems:\n  - ['$\\\\binom{1}{1}$', hello]\n";
+        let pretty = parse_yaml_file(inp).unwrap().pretty().format().unwrap();
+        // The brace-containing element must be quoted inside the inline array.
+        assert!(pretty.contains("'$\\\\binom{1}{1}$'") || pretty.contains("\"$\\\\binom{1}{1}$\""),
+            "brace string should be quoted in inline array, got:\n{}", pretty);
+    }
+
+    // Minimal reproduction: flatten + tag + untagged enum with nested struct.
+    // Ensures that fields after the solution (feedback, points) are NOT nested
+    // inside the inner tuple map.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serialize_flatten_tag_nested_map() {
+        use crate::yaml::serializer::YamlSerializer;
+        use crate::yaml::Pretty;
+        use serde::Serialize;
+
+        #[derive(Serialize)]
+        struct Outer {
+            metadata: String,
+            #[serde(flatten)]
+            content: Tagged,
+        }
+
+        #[derive(Serialize)]
+        #[serde(tag = "type", rename_all = "snake_case")]
+        enum Tagged {
+            Input(Inner),
+        }
+
+        #[derive(Serialize)]
+        struct Inner {
+            #[serde(flatten)]
+            kind: Kind,
+            points: i16,
+        }
+
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "snake_case")]
+        enum Kind {
+            PythonExpression(PythonExpr),
+        }
+
+        #[derive(Serialize)]
+        struct PythonExpr {
+            solution: Value,
+            feedback: Option<String>,
+        }
+
+        #[derive(Serialize)]
+        #[serde(untagged)]
+        enum Value {
+            Tuple(Tuple),
+            Int(i64),
+        }
+
+        #[derive(Serialize)]
+        struct Tuple {
+            tuple_items: Vec<Value>,
+        }
+
+        let outer = Outer {
+            metadata: "test".to_string(),
+            content: Tagged::Input(Inner {
+                kind: Kind::PythonExpression(PythonExpr {
+                    solution: Value::Tuple(Tuple {
+                        tuple_items: vec![
+                            Value::Int(10),
+                            Value::Tuple(Tuple {
+                                tuple_items: vec![Value::Int(8), Value::Int(5)],
+                            }),
+                        ],
+                    }),
+                    feedback: None,
+                }),
+                points: 100,
+            }),
+        };
+
+        let yaml = outer.serialize(YamlSerializer).unwrap();
+        let doc = yaml.pretty();
+        use crate::yaml::{AliasedYaml, DocumentData};
+        let document = crate::yaml::Document {
+            leading_comments: vec![],
+            items: vec![DocumentData::Yaml(doc)],
+        };
+        let output = document.format().unwrap();
+        println!("YAML output:\n{}", output);
+
+        // `feedback` and `points` must be siblings of `solution`, not nested inside tuple_items.
+        assert!(
+            !output.contains("- 5\n      feedback") && !output.contains("- 5\n              feedback"),
+            "feedback must not be nested inside tuple_items:\n{}", output
+        );
+        assert!(output.contains("\nfeedback:") || output.contains("\npoints:") || output.contains("  feedback:") || output.contains("  points:"),
+            "feedback/points should appear at the input level:\n{}", output);
+    }
 }

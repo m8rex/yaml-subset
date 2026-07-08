@@ -27,7 +27,7 @@ pub fn parse_literal(lines: Vec<&str>, chomping: BlockChomping) -> String {
 // Strips the trailing "" that split("\n") produces for strings ending with \n,
 // because Keep chomping adds that \n back during deserialization.
 pub fn create_literal(s: String) -> Vec<String> {
-    let mut lines: Vec<String> = s.trim_start_matches(' ').split('\n').map(str::to_string).collect();
+    let mut lines: Vec<String> = s.split('\n').map(str::to_string).collect();
     if s.ends_with('\n') {
         if lines.last().map(|l| l.is_empty()).unwrap_or(false) {
             lines.pop();
@@ -315,10 +315,16 @@ plus another line at the end.
             super::parse_literal(input.clone(), BlockChomping::default()),
             result
         );
-        let result = format!(" {}", result); // add leading space as test
-        input.pop(); // Remove extra two (trailing \n was stripped from create_literal output)
+        // Round-trip: create_literal of the parsed string gives back the original lines
+        // (minus the two trailing empty strings that represent chomping).
         input.pop();
-        assert_eq!(input, super::create_literal(result))
+        input.pop();
+        assert_eq!(input, super::create_literal(result.to_string()));
+
+        // Leading spaces in the first line must be preserved (needed for |2 indicator).
+        let with_leading = format!(" {}", result);
+        let lines_with_leading = super::create_literal(with_leading);
+        assert!(lines_with_leading[0].starts_with(' '), "leading space must be preserved")
     }
 
     /* TODO: remove
